@@ -72,31 +72,38 @@ class RequirementAnalysisWorkflow:
             collected_requirements = await self.agents["requirement_collector"].collect_requirements(user_input)
             self.results["collected_requirements"] = collected_requirements
             
-            # 步骤2: 分析需求 - 只传递核心需求信息
+            # 步骤2: 分析需求 - 建立结构化的需求条目
             logger.info("步骤2: 分析需求...")
-            # 只提取关键信息传递给分析器，避免累积过多数据
-            core_requirements = {
+            # 建立结构化的需求条目，便于后续架构设计关联
+            requirement_items = {
                 "raw_input": user_input,
                 "functional_requirements": collected_requirements.get("functional_requirements", []),
-                "key_features": collected_requirements.get("key_features", [])
+                "key_features": collected_requirements.get("key_features", []),
+                "non_functional_requirements": collected_requirements.get("non_functional_requirements", []),
+                "business_requirements": collected_requirements.get("business_requirements", []),
+                "requirement_entries": self._create_requirement_entries(collected_requirements)
             }
-            analysis_results = await self.agents["requirement_analyzer"].analyze_feasibility(core_requirements)
+            analysis_results = await self.agents["requirement_analyzer"].analyze_feasibility(requirement_items)
             self.results["analysis_results"] = analysis_results
             
-            # 步骤3: 验证需求 - 只传递核心需求信息
+            # 步骤3: 验证需求 - 基于需求条目进行验证
             logger.info("步骤3: 验证需求...")
-            validation_results = await self.agents["requirement_validator"].validate_correctness(core_requirements)
+            validation_results = await self.agents["requirement_validator"].validate_correctness(requirement_items)
             self.results["validation_results"] = validation_results
+            
+            # 存储结构化的需求条目供架构设计使用
+            self.results["requirement_items"] = requirement_items
             
             # 步骤4: 生成文档
             logger.info("步骤4: 生成需求文档...")
             
-            # 合并所有结果用于文档生成，但控制数据量
+            # 合并所有结果用于文档生成，包含结构化的需求条目
             document_data = {
-                "collected_requirements": core_requirements,  # 使用精简后的数据
+                "collected_requirements": requirement_items,  # 使用结构化的需求条目
                 "analysis_results": analysis_results,
                 "validation_results": validation_results,
-                "user_input": user_input
+                "user_input": user_input,
+                "requirement_entries": requirement_items.get("requirement_entries", [])
             }
             
             requirement_document = await self.agents["document_generator"].generate_requirement_document(document_data)
@@ -119,12 +126,54 @@ class RequirementAnalysisWorkflow:
                 "error": str(e)
             }
     
+    def _create_requirement_entries(self, collected_requirements: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """创建结构化的需求条目，便于与架构设计关联"""
+        entries = []
+        
+        # 处理功能需求
+        functional_reqs = collected_requirements.get("functional_requirements", [])
+        for i, req in enumerate(functional_reqs):
+            entries.append({
+                "id": f"FR-{i+1:03d}",
+                "type": "functional",
+                "description": req,
+                "priority": "high" if i < 3 else "medium",
+                "status": "analyzed"
+            })
+        
+        # 处理非功能需求
+        non_functional_reqs = collected_requirements.get("non_functional_requirements", [])
+        for i, req in enumerate(non_functional_reqs):
+            entries.append({
+                "id": f"NFR-{i+1:03d}",
+                "type": "non_functional",
+                "description": req,
+                "priority": "high",
+                "status": "analyzed"
+            })
+        
+        # 处理业务需求
+        business_reqs = collected_requirements.get("business_requirements", [])
+        for i, req in enumerate(business_reqs):
+            entries.append({
+                "id": f"BR-{i+1:03d}",
+                "type": "business",
+                "description": req,
+                "priority": "high",
+                "status": "analyzed"
+            })
+        
+        return entries
+    
     def get_workflow_status(self) -> Dict[str, Any]:
         """获取工作流状态"""
+        requirement_entries = self.results.get("requirement_items", {}).get("requirement_entries", [])
         return {
             "agents_initialized": len(self.agents),
             "agents_status": {name: "active" for name in self.agents.keys()},
-            "workflow_data_size": len(str(self.results)) if self.results else 0
+            "workflow_data_size": len(str(self.results)) if self.results else 0,
+            "requirement_entries_count": len(requirement_entries),
+            "requirement_entries": requirement_entries[:5]  # 只显示前5个作为示例
         }
     
     def _save_results(self):

@@ -37,13 +37,11 @@ class RequirementAnalyzerAgent(AgentBase):
                     logger.info(f"[{self.name}] 成功初始化OpenAI模型: {DEFAULT_MODEL}")
                 
             except Exception as e:
-                logger.warning(f"[{self.name}] 初始化真实模型失败: {e}, 使用模拟模式")
-                from .mock_model import MockModel
-                self.model = MockModel("requirement-analyzer")
+                logger.error(f"[{self.name}] 初始化真实模型失败: {e}")
+                raise RuntimeError(f"模型初始化失败: {e}")
         else:
-            logger.warning(f"[{self.name}] 未配置API密钥, 使用模拟模式")
-            from .mock_model import MockModel
-            self.model = MockModel("requirement-analyzer")
+            logger.error(f"[{self.name}] 未配置API密钥")
+            raise RuntimeError("未配置API密钥，无法初始化模型。请在环境变量中设置DASHSCOPE_API_KEY或OPENAI_API_KEY。")
     
     async def _process_model_response(self, response):
         """处理模型响应，支持流式和非流式响应"""
@@ -91,8 +89,19 @@ class RequirementAnalyzerAgent(AgentBase):
         elif hasattr(response, 'text'):
             # 处理非流式响应
             return response.text
+        elif hasattr(response, '__dict__'):
+            # 如果是SimpleNamespace或其他对象，优先使用text属性或转换为dict获取text
+            if 'text' in response.__dict__:
+                return response.__dict__['text']
+            else:
+                # 如果没有text属性，返回对象的字符串表示
+                return str(response)
         else:
-            return str(response)
+            # 如果response没有__dict__属性，尝试其他方法
+            if hasattr(response, 'text'):
+                return response.text
+            else:
+                return str(response)
     
     async def analyze_feasibility(self, requirements: Dict[str, Any]) -> Dict[str, Any]:
         """分析需求的可行性"""
@@ -141,8 +150,9 @@ class RequirementAnalyzerAgent(AgentBase):
         
         response = await self.model([{"role": "user", "content": prompt}])
         
+        content = await self._process_model_response(response)
         return {
-            "completeness_analysis": response.text if hasattr(response, 'text') else str(response),
+            "completeness_analysis": content,
             "requirements": requirements
         }
     
@@ -164,8 +174,9 @@ class RequirementAnalyzerAgent(AgentBase):
         """
         
         response = await self.model([{"role": "user", "content": prompt}])
+        content = await self._process_model_response(response)
         
         return {
-            "prioritized_requirements": response.text if hasattr(response, 'text') else str(response),
+            "prioritized_requirements": content,
             "requirements": requirements
         }
