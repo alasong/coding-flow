@@ -16,6 +16,7 @@ from abc import abstractmethod
 from workflow.base_workflow import BaseWorkflow
 from workflow.requirement_workflow import RequirementAnalysisWorkflow
 from workflow.architecture_workflow import ArchitectureDesignWorkflow
+from workflow.development_workflow import ProjectDevelopmentWorkflow
 from config import MASTER_WORKFLOW_CONFIG, OUTPUT_DIR
 import logging
 
@@ -39,6 +40,12 @@ class MasterWorkflow(BaseWorkflow):
         if MASTER_WORKFLOW_CONFIG.get("enable_architecture_workflow", True):
             self.architecture_workflow = ArchitectureDesignWorkflow()
             logger.info("架构设计工作流已启用")
+
+        if MASTER_WORKFLOW_CONFIG.get("enable_development_workflow", True):
+            self.development_workflow = ProjectDevelopmentWorkflow()
+            logger.info("项目分解工作流已启用")
+        else:
+            self.development_workflow = None
     
     def _establish_requirement_architecture_mapping(self) -> None:
         """建立需求与架构的关联映射"""
@@ -289,6 +296,16 @@ class MasterWorkflow(BaseWorkflow):
                 
                 logger.info("架构设计步骤完成")
                 return result
+            elif step_name == "decomposition":
+                if not getattr(self, "development_workflow", None):
+                    raise ValueError("项目分解工作流未启用")
+                arch_ctx = self.context.get("architecture_design", {})
+                arch_final = arch_ctx.get("final_result", {})
+                architecture_analysis = arch_final.get("architecture_design", {})
+                dev_result = await self.development_workflow.execute(architecture_analysis, output_dir=OUTPUT_DIR)
+                self.context["decomposition"] = dev_result
+                logger.info("项目分解步骤完成")
+                return dev_result
             
             else:
                 raise ValueError(f"未知步骤: {step_name}")
@@ -317,6 +334,8 @@ class MasterWorkflow(BaseWorkflow):
             steps.append({"name": "requirement_analysis", "description": "需求分析"})
         if self.architecture_workflow:
             steps.append({"name": "architecture_design", "description": "架构设计"})
+        if getattr(self, "development_workflow", None):
+            steps.append({"name": "decomposition", "description": "项目分解"})
         return steps
     
     async def run(self, input_data: str, workflow_mode: str = "sequential", **kwargs) -> Dict[str, Any]:
@@ -363,6 +382,10 @@ class MasterWorkflow(BaseWorkflow):
                     logger.info("开始执行架构设计工作流")
                     architecture_result = await self._execute_step("architecture_design", input_data, **kwargs)
                     results["results"]["architecture_design"] = architecture_result
+                if getattr(self, "development_workflow", None):
+                    logger.info("开始执行项目分解工作流")
+                    development_result = await self._execute_step("decomposition", input_data, **kwargs)
+                    results["results"]["decomposition"] = development_result
             
             elif workflow_mode == "parallel":
                 # 并行执行工作流

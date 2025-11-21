@@ -33,9 +33,17 @@ ARCHITECTURE_WORKFLOW_CONFIG = {
 MASTER_WORKFLOW_CONFIG = {
     "enable_requirement_workflow": os.getenv("ENABLE_REQUIREMENT_WORKFLOW", "true").lower() == "true",
     "enable_architecture_workflow": os.getenv("ENABLE_ARCHITECTURE_WORKFLOW", "true").lower() == "true",
+    "enable_development_workflow": os.getenv("ENABLE_DEVELOPMENT_WORKFLOW", "true").lower() == "true",
     "workflow_sequential": os.getenv("WORKFLOW_SEQUENTIAL", "true").lower() == "true",
     "save_intermediate_results": os.getenv("SAVE_INTERMEDIATE_RESULTS", "true").lower() == "true",
     "max_workflow_chain_length": int(os.getenv("MAX_WORKFLOW_CHAIN_LENGTH", "5"))
+}
+
+# 项目开发工作流配置
+DEVELOPMENT_WORKFLOW_CONFIG = {
+    "max_units_per_package": int(os.getenv("DEV_MAX_UNITS_PER_PACKAGE", "3")),
+    "require_full_coverage": os.getenv("DEV_REQUIRE_FULL_COVERAGE", "true").lower() == "true",
+    "output_formats": ["json", "markdown"],
 }
 
 # Agent配置

@@ -1,6 +1,6 @@
 # 智能软件开发工作流系统 🤖
 
-基于AgentScope框架的多智能体协作系统，集成需求分析、架构设计和技术文档生成的完整开发生命周期管理。
+基于AgentScope框架的多智能体协作系统，集成需求分析、架构设计与项目分解的完整端到端工作流，并生成技术文档套件。
 
 ## 🌟 核心功能
 
@@ -13,6 +13,12 @@
 - **智能架构生成**: 基于需求分析结果自动生成系统架构
 - **组件映射**: 智能匹配需求与架构组件，支持100%需求覆盖
 - **架构验证**: 多维度评估架构设计的合理性和可行性
+
+### 项目分解与并发
+- **软件单元抽取**: 统一抽取系统组件、数据库对象、API端点为 `Software Unit`
+- **工作包分解**: 按域/类型分桶，限制每包≤3单元，LLM友好粒度
+- **覆盖度门禁**: 统计并保证 `Software Unit` 100%覆盖，自动补救未覆盖项
+- **并发编排**: 基于上下文与资源冲突生成并发批次，输出冲突集
 
 ### 技术文档生成
 - **完整文档套件**: 架构设计文档、技术选型说明、部署指南
@@ -104,6 +110,10 @@ python main.py --info
 - `technology_selection_document_YYYYMMDD_HHMMSS.md` - 技术选型说明
 - `deployment_guide_YYYYMMDD_HHMMSS.md` - 部署指南
 
+### 项目分解结果
+- `development_workflow_result_YYYYMMDD_HHMMSS.json` - 软件单元、工作包、覆盖度与并发批次
+- `development_overview_YYYYMMDD_HHMMSS.md` - 项目分解总览（覆盖度、并发批次、工作包列表）
+
 ### 综合报告
 - `master_workflow_result_YYYYMMDD_HHMMSS.json` - 完整工作流结果
 - `master_workflow_summary_YYYYMMDD_HHMMSS.md` - 执行摘要
@@ -122,9 +132,9 @@ python main.py --info
         ┌────────────────┼────────────────┐
         │                │                │
 ┌───────▼──────┐  ┌─────▼──────┐  ┌─────▼──────┐
-│ 需求分析工作流 │  │ 架构设计工作流 │  │ 技术文档生成  │
-│ Requirement   │  │ Architecture │  │ Technical    │
-│ Workflow      │  │ Workflow     │  │ Documents    │
+│ 需求分析工作流 │  │ 架构设计工作流 │  │ 项目分解工作流 │
+│ Requirement   │  │ Architecture │  │ Decomposition │
+│ Workflow      │  │ Workflow     │  │ Workflow      │
 └──────────────┘  └──────────────┘  └──────────────┘
 ```
 
@@ -135,14 +145,11 @@ python main.py --info
      └────────────────┴────────────────┴────→ 协调器
 ```
 
-## 🎯 核心优势
-
-- ✅ **100%需求覆盖率**: 智能算法确保每个需求都有对应的架构设计
-- ✅ **真实API集成**: 支持DashScope和OpenAI等大模型API
-- ✅ **异步处理**: 完全异步架构，支持高并发处理
-- ✅ **错误恢复**: 完善的错误处理和重试机制
-- ✅ **可扩展**: 模块化设计，易于添加新的智能体和工作流
-- ✅ **多格式输出**: 支持JSON、Markdown等多种文档格式
+## 🎯 端到端验证要点
+ - 需求→架构：需求条目追踪矩阵，覆盖率统计与评分（100%）
+ - 架构→分解：Software Unit 抽取与 Work Package 绑定（100%覆盖）
+ - 并行能力：并发批次生成，冲突集识别（DB同表迁移互斥、共享资源锁）
+ - 文档套件：架构设计/技术选型/部署指南 + 项目分解总览
 
 ## 📁 项目结构
 
@@ -156,11 +163,18 @@ python main.py --info
 │   ├── requirement_validator.py   # 需求验证智能体
 │   ├── architecture_analyzer.py   # 架构分析智能体
 │   ├── architecture_validator.py  # 架构验证智能体
-│   └── technical_document_generator.py # 技术文档生成智能体
+│   ├── technical_document_generator.py # 技术文档生成智能体
+│   ├── software_unit_extractor.py  # 软件单元抽取智能体
+│   ├── work_package_planner.py     # 工作包规划智能体
+│   ├── unit_workpackage_matcher.py # 单元-工作包匹配智能体
+│   ├── coverage_auditor.py         # 覆盖度审计智能体
+│   ├── concurrency_orchestrator.py # 并发编排智能体
+│   └── dev_plan_generator.py       # 开发计划生成智能体
 ├── workflow/                        # 工作流定义
 │   ├── master_workflow.py         # 主工作流协调器
 │   ├── requirement_workflow.py    # 需求分析工作流
-│   └── architecture_workflow.py   # 架构设计工作流
+│   ├── architecture_workflow.py   # 架构设计工作流
+│   └── development_workflow.py    # 项目分解工作流
 ├── utils/                           # 工具函数
 └── output/                        # 输出目录
 ```
@@ -189,7 +203,13 @@ MODEL_CONFIG = {
 MASTER_WORKFLOW_CONFIG = {
     "enable_requirement_workflow": True,
     "enable_architecture_workflow": True,
+    "enable_development_workflow": True,
     "save_intermediate_results": True
+}
+
+DEVELOPMENT_WORKFLOW_CONFIG = {
+    "max_units_per_package": 3,
+    "require_full_coverage": True
 }
 ```
 
@@ -200,8 +220,8 @@ MASTER_WORKFLOW_CONFIG = {
 **Q: API调用失败怎么办？**
 A: 检查API密钥配置，确保网络连接正常，查看日志文件获取详细信息。
 
-**Q: 需求覆盖率低怎么办？**  
-A: 使用 `--debug-requirements` 和 `--debug-architecture` 参数查看详细匹配过程，优化需求描述。
+**Q: 覆盖度未达100%怎么办？**  
+A: 系统会自动生成补救包补齐未覆盖单元；也可调小 `max_units_per_package` 控制粒度后重跑。
 
 **Q: 输出文档为空怎么办？**
 A: 检查模型响应是否正常，使用 `--log-level DEBUG` 查看详细日志。

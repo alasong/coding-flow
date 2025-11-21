@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+
+# Environments
+.venv/
+venv/
+.env
+
+# IDE/OS
+.idea/
+.vscode/
+.DS_Store
+
+# Project outputs
+output/
+logs/
+.trae/
+*.log
+
+# Coverage / test
+.pytest_cache/
+.coverage
+coverage.xml
+
+# Node (if any)
+node_modules/
+

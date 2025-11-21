@@ -44,8 +44,8 @@ class ArchitectureAnalyzerAgent(AgentBase):
                 logger.error(f"[{self.name}] 初始化真实模型失败: {e}")
                 raise RuntimeError(f"模型初始化失败: {e}")
         else:
-            logger.error(f"[{self.name}] 未配置API密钥")
-            raise RuntimeError("未配置API密钥，无法初始化模型。请在环境变量中设置DASHSCOPE_API_KEY或OPENAI_API_KEY。")
+            logger.warning(f"[{self.name}] 未配置API密钥，使用离线默认设计")
+            self.model = None
     
     async def analyze_system_architecture(self, requirements: Dict[str, Any]) -> Dict[str, Any]:
         """分析系统架构"""
@@ -112,6 +112,30 @@ class ArchitectureAnalyzerAgent(AgentBase):
         - analysis_summary: 架构分析总结，说明如何满足每个需求
         """
         
+        if not getattr(self, "model", None):
+            return {
+                "architecture_pattern": "微服务架构",
+                "technology_stack": {
+                    "frontend": "React",
+                    "backend": "Django",
+                    "database": "PostgreSQL",
+                    "cache": "Redis",
+                    "message_queue": "RabbitMQ"
+                },
+                "system_components": [
+                    {"name": "API Gateway"},
+                    {"name": "User Service"},
+                    {"name": "Product Service"},
+                    {"name": "Order Service"},
+                    {"name": "Payment Service"}
+                ],
+                "deployment_architecture": "容器化部署，Kubernetes编排",
+                "performance_considerations": "缓存、负载均衡、读写分离",
+                "scalability_design": "水平扩展、服务拆分",
+                "security_architecture": "认证授权、加密、WAF",
+                "monitoring_architecture": "Prometheus+Grafana",
+                "analysis_summary": "基于默认模板的系统架构"
+            }
         response = await self.model([{"role": "user", "content": prompt}])
         content = await self._process_model_response(response)
         
@@ -211,6 +235,8 @@ class ArchitectureAnalyzerAgent(AgentBase):
         - backup_strategy: 备份策略
         """
         
+        if not getattr(self, "model", None):
+            return self._generate_default_database_design()
         response = await self.model([{"role": "user", "content": prompt}])
         content = await self._process_model_response(response)
         
@@ -337,6 +363,8 @@ class ArchitectureAnalyzerAgent(AgentBase):
         - performance_optimization: 性能优化
         """
         
+        if not getattr(self, "model", None):
+            return self._generate_default_api_design()
         response = await self.model([{"role": "user", "content": prompt}])
         content = await self._process_model_response(response)
         

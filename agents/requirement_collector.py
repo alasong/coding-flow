@@ -41,8 +41,8 @@ class RequirementCollectorAgent(AgentBase):
                 logger.error(f"[{self.name}] 初始化真实模型失败: {e}")
                 raise RuntimeError(f"模型初始化失败: {e}")
         else:
-            logger.error(f"[{self.name}] 未配置API密钥")
-            raise RuntimeError("未配置API密钥，无法初始化模型。请在环境变量中设置DASHSCOPE_API_KEY或OPENAI_API_KEY。")
+            logger.warning(f"[{self.name}] 未配置API密钥，使用离线需求解析")
+            self.model = None
         
     async def _process_model_response(self, response):
         """处理模型响应，支持流式和非流式响应"""
@@ -139,6 +139,39 @@ class RequirementCollectorAgent(AgentBase):
         """
         
         # 使用AgentScope的模型调用
+        if not getattr(self, "model", None):
+            # 离线解析：按行拆分并用关键词分类
+            text = user_input
+            lines = [l.strip() for l in text.splitlines() if l.strip()]
+            tokens = []
+            for l in lines:
+                for t in l.replace('，', ' ').replace(',', ' ').split():
+                    if len(t) >= 2:
+                        tokens.append(t)
+            functional = []
+            non_functional = []
+            constraints = []
+            key_features = []
+            for item in tokens:
+                low = item.lower()
+                if any(k in low for k in ['性能', '并发', '响应', 'latency', 'qps']):
+                    non_functional.append(item)
+                elif any(k in low for k in ['安全', '认证', '授权', '加密', 'security']):
+                    non_functional.append(item)
+                elif any(k in low for k in ['约束', '限制', '平台', '框架']):
+                    constraints.append(item)
+                else:
+                    functional.append(item)
+            requirements = {
+                "raw_input": user_input,
+                "functional_requirements": functional[:15],
+                "non_functional_requirements": non_functional,
+                "constraints": constraints,
+                "key_features": key_features or functional[:5],
+                "extracted_at": datetime.now().isoformat()
+            }
+            logger.info(f"[{self.name}] 离线需求收集完成，功能:{len(functional[:15])}, 非功能:{len(non_functional)}")
+            return requirements
         response = await self.model([{"role": "user", "content": prompt}])
         
         requirements = {

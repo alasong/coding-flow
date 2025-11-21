@@ -51,8 +51,8 @@ class TechnicalDocumentGeneratorAgent:
                 logger.error(f"[{self.name}] 初始化真实模型失败: {e}")
                 raise RuntimeError(f"模型初始化失败: {e}")
         else:
-            logger.error(f"[{self.name}] 未配置API密钥")
-            raise RuntimeError("未配置API密钥，无法初始化模型。请在环境变量中设置DASHSCOPE_API_KEY或OPENAI_API_KEY。")
+            logger.warning(f"[{self.name}] 未配置API密钥，使用离线文档生成（回退内容）")
+            return None
     
     async def generate_technical_documents(self, requirements: Dict[str, Any], architecture_design: Dict[str, Any], 
                                      validation_result: Dict[str, Any]) -> Dict[str, Any]:

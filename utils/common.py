@@ -5,6 +5,8 @@ from typing import Dict, Any
 
 def setup_logging(level: str = "INFO") -> None:
     """设置日志配置"""
+    import os
+    os.makedirs('logs', exist_ok=True)
     logging.basicConfig(
         level=getattr(logging, level.upper()),
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
