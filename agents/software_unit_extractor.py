@@ -70,6 +70,18 @@ class SoftwareUnitExtractorAgent:
                 "risk_level": self._infer_risk(description or name)
             })
 
+        # 前端软件单元：基于技术栈检测
+        tech_stack = system_arch.get("technology_stack", {}) or architecture_analysis.get("technology_stack", {})
+        if tech_stack.get("frontend"):
+            units.append({
+                "id": "FE::Frontend UI",
+                "type": "frontend",
+                "name": "Frontend UI",
+                "context": "web",
+                "dependencies": [],
+                "risk_level": "low"
+            })
+
         normalized = self._dedupe(units)
         logger.info(f"[{self.name}] 抽取到软件单元 {len(normalized)} 个")
         return normalized
@@ -92,4 +104,3 @@ class SoftwareUnitExtractorAgent:
         if any(k in t for k in ["order", "数据库", "迁移", "索引"]):
             return "medium"
         return "low"
-

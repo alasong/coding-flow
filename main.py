@@ -225,9 +225,23 @@ class WorkflowRunner:
         if "requirement_analysis" in result.get("results", {}):
             req_result = result["results"]["requirement_analysis"]
             req_info = req_result.get("workflow_info", {})
+            # 回退计算状态与耗时
+            status = req_info.get("status") or req_result.get("status", "completed")
+            duration = req_info.get("total_duration")
+            if duration is None:
+                from datetime import datetime
+                start = req_result.get("start_time")
+                end = req_result.get("end_time")
+                try:
+                    if start and end:
+                        duration = (datetime.fromisoformat(end) - datetime.fromisoformat(start)).total_seconds()
+                    else:
+                        duration = 0.0
+                except Exception:
+                    duration = 0.0
             print(f"\n需求分析:")
-            print(f"  - 状态: {req_info.get('status', 'unknown')}")
-            print(f"  - 耗时: {req_info.get('total_duration', 0):.2f} 秒")
+            print(f"  - 状态: {status}")
+            print(f"  - 耗时: {duration:.2f} 秒")
             
             # 从分析结果中获取需求条目
             analysis_results = req_result.get("results", {})
@@ -248,20 +262,62 @@ class WorkflowRunner:
             arch_info = arch_result.get("workflow_info", {})
             validation = arch_result.get("architecture_validation", {})
             print(f"\n架构设计:")
-            print(f"  - 状态: {arch_info.get('status', 'unknown')}")
-            print(f"  - 耗时: {arch_info.get('total_duration', 0):.2f} 秒")
+            status = arch_info.get("status") or arch_result.get("status", "completed")
+            duration = arch_info.get("total_duration")
+            if duration is None:
+                from datetime import datetime
+                start = arch_result.get("start_time")
+                end = arch_result.get("end_time")
+                try:
+                    if start and end:
+                        duration = (datetime.fromisoformat(end) - datetime.fromisoformat(start)).total_seconds()
+                    else:
+                        duration = 0.0
+                except Exception:
+                    duration = 0.0
+            print(f"  - 状态: {status}")
+            print(f"  - 耗时: {duration:.2f} 秒")
             if validation:
                 print(f"  - 总体评分: {validation.get('overall_score', 0)}/10")
                 
                 if debug_architecture:
                     components = arch_result.get("architecture_design", {}).get("components", [])
                     print(f"  - 系统组件: {len(components)} 个")
-                    if components:
-                        print(f"    组件列表:")
-                        for component in components[:5]:
-                            print(f"    * {component.get('name', 'N/A')}: {component.get('description', 'N/A')[:40]}...")
-                        if len(components) > 5:
-                            print(f"    ... 还有 {len(components) - 5} 个组件")
+                if components:
+                    print(f"    组件列表:")
+                    for component in components[:5]:
+                        print(f"    * {component.get('name', 'N/A')}: {component.get('description', 'N/A')[:40]}...")
+                    if len(components) > 5:
+                        print(f"    ... 还有 {len(components) - 5} 个组件")
+
+        # 显示项目分解结果
+        if "decomposition" in result.get("results", {}):
+            decomp = result["results"]["decomposition"]
+            print(f"\n项目分解:")
+            print(f"  - 状态: {decomp.get('status', 'unknown')}")
+            steps = decomp.get("steps", {})
+            wp = steps.get("work_packages", {})
+            cov = steps.get("coverage", {})
+            if wp:
+                print(f"  - 工作包: {wp.get('count', 0)} 个")
+            if cov:
+                print(f"  - 覆盖度: {cov.get('coverage_percentage', 0):.2f}%")
+
+        # 显示项目开发结果
+        if "development_execution" in result.get("results", {}):
+            devexec = result["results"]["development_execution"]
+            print(f"\n项目开发:")
+            print(f"  - 状态: {devexec.get('status', 'unknown')}")
+            final = devexec.get("final_result", {})
+            scaffold = final.get("scaffold", {})
+            code_dir = scaffold.get("code_dir")
+            if code_dir:
+                print(f"  - 代码目录: {code_dir}")
+            steps = devexec.get("steps", {})
+            if "frontend" in steps:
+                print("  - 模式: Web 前端")
+            if "cli" in steps:
+                print("  - 模式: CLI")
         
         # 显示需求-架构映射
         if show_mapping and "requirement_architecture_mapping" in result.get("context", {}):

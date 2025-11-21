@@ -1,0 +1,82 @@
+{
+  "workflow_name": "项目开发工作流",
+  "start_time": "2025-11-21T10:33:29.718156",
+  "status": "completed",
+  "steps": {
+    "scaffold": {
+      "status": "completed",
+      "modules": [],
+      "created": true
+    },
+    "api": {
+      "status": "completed",
+      "apis": [],
+      "created": true
+    },
+    "db_migration": {
+      "status": "completed",
+      "migrations": [],
+      "conflicts": {}
+    },
+    "mock": {
+      "status": "completed",
+      "mocks": [],
+      "flags": []
+    },
+    "tests": {
+      "status": "completed",
+      "tests": [],
+      "coverage_threshold": 0.7
+    },
+    "ci": {
+      "status": "completed",
+      "workflows": [],
+      "lint": true
+    },
+    "security": {
+      "status": "completed",
+      "secrets_ok": true,
+      "env_example": true
+    },
+    "verify": {
+      "status": "completed",
+      "build": true,
+      "tests": true
+    }
+  },
+  "final_result": {
+    "scaffold": {
+      "modules": [],
+      "created": true
+    },
+    "api": {
+      "apis": [],
+      "created": true
+    },
+    "db_migration": {
+      "migrations": [],
+      "conflicts": {}
+    },
+    "mock": {
+      "mocks": [],
+      "flags": []
+    },
+    "tests": {
+      "tests": [],
+      "coverage_threshold": 0.7
+    },
+    "ci": {
+      "workflows": [],
+      "lint": true
+    },
+    "security": {
+      "secrets_ok": true,
+      "env_example": true
+    },
+    "verify": {
+      "build": true,
+      "tests": true
+    }
+  },
+  "end_time": "2025-11-21T10:33:29.718181"
+}

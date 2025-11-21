@@ -62,7 +62,7 @@ class RequirementAnalysisWorkflow:
             elif agent_type == "document_generator":
                 self.agents[agent_type] = DocumentGeneratorAgent(**config)
     
-    async def run(self, user_input: str) -> Dict[str, Any]:
+    async def run(self, user_input: str, output_dir: str = "output") -> Dict[str, Any]:
         """运行需求分析工作流"""
         logger.info("开始执行需求分析工作流...")
         
@@ -110,7 +110,7 @@ class RequirementAnalysisWorkflow:
             self.results["requirement_document"] = requirement_document
             
             # 保存结果
-            self._save_results()
+            self._save_results(output_dir=output_dir)
             
             logger.info("需求分析工作流执行完成！")
             return {
@@ -176,10 +176,9 @@ class RequirementAnalysisWorkflow:
             "requirement_entries": requirement_entries[:5]  # 只显示前5个作为示例
         }
     
-    def _save_results(self):
+    def _save_results(self, output_dir: str = "output"):
         """保存工作流结果"""
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        output_dir = "output"
         
         # 确保输出目录存在
         if not os.path.exists(output_dir):

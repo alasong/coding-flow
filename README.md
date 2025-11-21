@@ -67,6 +67,8 @@ python main.py -f requirements.txt -m sequential --debug-requirements --debug-ar
 | `parallel` | 并行执行需求和架构分析 | `-m parallel` |
 | `requirement_only` | 仅执行需求分析 | `-m requirement_only` |
 | `architecture_only` | 仅执行架构设计 | `-m architecture_only` |
+| `decomposition` | 仅执行项目分解 | 通过主工作流步骤调用 |
+| `development_execution` | 执行项目开发 | 通过主工作流步骤调用 |
 
 ## 🛠️ 高级功能
 
@@ -96,7 +98,7 @@ python main.py --info
 
 ## 📊 输出结果
 
-系统将在 `output/` 目录生成完整的文档套件：
+系统将在 `output/<项目目录>/` 生成分项目的文档套件（不混放）：
 
 ### 需求分析结果
 - `requirement_analysis_YYYYMMDD_HHMMSS.json` - 结构化需求数据
@@ -110,7 +112,7 @@ python main.py --info
 - `technology_selection_document_YYYYMMDD_HHMMSS.md` - 技术选型说明
 - `deployment_guide_YYYYMMDD_HHMMSS.md` - 部署指南
 
-### 项目分解结果
+### 项目分解结果（位于 `output/<项目目录>/decomposition/`）
 - `development_workflow_result_YYYYMMDD_HHMMSS.json` - 软件单元、工作包、覆盖度与并发批次
 - `development_overview_YYYYMMDD_HHMMSS.md` - 项目分解总览（覆盖度、并发批次、工作包列表）
 
@@ -237,3 +239,55 @@ MIT License - 详见 [LICENSE](LICENSE) 文件
 ---
 
 **⭐ 如果这个项目对您有帮助，请给个Star支持一下！**
+## 🧭 项目开发工作流（DevelopmentExecutionWorkflow）
+
+- 输入：项目分解输出的 `software_units` 与 `work_packages`
+- 输出：代码脚手架、API骨架、数据库迁移、测试套件、CI配置、运行验证报告
+- 配置：`DEVELOPMENT_EXECUTION_CONFIG`（语言、覆盖率阈值、CI模板）
+
+### 使用示例
+执行完整顺序模式生成分解后，主工作流会串行触发项目开发工作流：
+```bash
+python main.py -f requirements.txt -m sequential
+```
+输出位于：`output/<项目目录>/development_execution/`
+
+### 界面模式自动决策
+- 规则：
+  - 需求中出现“用户/界面/前端/页面/管理后台/web/ui/docs”等词 → 选择 Web 前端
+  - 需求中出现“命令行/CLI/脚本/批处理/终端/shell”等词 → 选择 CLI
+  - 若未明确，结合 `technology_stack.frontend` 判断；仍无法判断则默认 Web
+- 生成结果：
+  - Web 前端：`frontend/index.html`，后端挂载 `/ui`，访问 `http://localhost:8000/ui/`
+  - CLI：`cli.py`（Typer），示例命令 `python cli.py health`
+
+### 交付物清单（按项目目录）
+- `project_code/app/main.py`：服务入口（含 `/health`）
+- `project_code/openapi.json`：API 规范
+- `project_code/migrations/0001_init.sql`：数据库迁移示例
+- `project_code/tests/test_basic.py`、`project_code/test_report.md`：测试与报告
+- `project_code/.github/workflows/ci.yml`：CI 配置（安装依赖 + 运行 pytest）
+- `project_code/.env.example`：环境变量示例（不包含真实密钥）
+- `project_code/README.md`：项目执行与说明（根据 Web/CLI 模式动态生成）
+
+### 启动与验证
+- 后端启动：
+  ```bash
+  uvicorn app.main:app --reload --port 8000
+  # 健康检查
+  curl http://localhost:8000/health
+  ```
+- Web 前端：访问 `http://localhost:8000/ui/`
+- CLI：
+  ```bash
+  python cli.py health
+  ```
+- 测试：
+  ```bash
+  pytest -q
+  ```
+
+### 后续增强（可选）
+- 前端工程化：升级为 React/Vite 或 Vue 标准项目结构、路由与页面骨架
+- 测试与覆盖率：生成 JUnit/XML 与 HTML 覆盖率报告，在 CI 中归档
+- 运行验证：容器化健康检查与端点自动化验证，生成详细运行报告

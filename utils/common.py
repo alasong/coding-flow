@@ -16,6 +16,21 @@ def setup_logging(level: str = "INFO") -> None:
         ]
     )
 
+def get_project_slug(input_text: str) -> str:
+    """根据输入生成项目目录slug，尽量可读，必要时回退到哈希"""
+    import re
+    import hashlib
+    base = (input_text or "").strip()
+    for line in base.splitlines():
+        if "项目名称" in line or "Project Name" in line:
+            name = line.split(':')[-1].strip()
+            slug = re.sub(r'[^a-zA-Z0-9\-]+', '-', name)
+            slug = slug.strip('-')
+            if len(slug) >= 3:
+                return slug[:60]
+    h = hashlib.md5((input_text or "").encode('utf-8')).hexdigest()[:8]
+    return f"project-{h}"
+
 def save_json_data(data: Dict[str, Any], filename: str, output_dir: str = "./output") -> str:
     """保存JSON数据到文件"""
     import os

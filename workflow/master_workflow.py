@@ -17,7 +17,9 @@ from workflow.base_workflow import BaseWorkflow
 from workflow.requirement_workflow import RequirementAnalysisWorkflow
 from workflow.architecture_workflow import ArchitectureDesignWorkflow
 from workflow.development_workflow import ProjectDevelopmentWorkflow
+from workflow.development_execution_workflow import DevelopmentExecutionWorkflow
 from config import MASTER_WORKFLOW_CONFIG, OUTPUT_DIR
+from utils.common import get_project_slug
 import logging
 
 logger = logging.getLogger(__name__)
@@ -46,6 +48,11 @@ class MasterWorkflow(BaseWorkflow):
             logger.info("项目分解工作流已启用")
         else:
             self.development_workflow = None
+        if MASTER_WORKFLOW_CONFIG.get("enable_development_execution_workflow", True):
+            self.development_execution_workflow = DevelopmentExecutionWorkflow()
+            logger.info("项目开发工作流已启用")
+        else:
+            self.development_execution_workflow = None
     
     def _establish_requirement_architecture_mapping(self) -> None:
         """建立需求与架构的关联映射"""
@@ -306,6 +313,14 @@ class MasterWorkflow(BaseWorkflow):
                 self.context["decomposition"] = dev_result
                 logger.info("项目分解步骤完成")
                 return dev_result
+            elif step_name == "development_execution":
+                if not getattr(self, "development_execution_workflow", None):
+                    raise ValueError("项目开发工作流未启用")
+                decomp_ctx = self.context.get("decomposition", {})
+                devexec_result = await self.development_execution_workflow.execute(decomp_ctx, output_dir=f"{OUTPUT_DIR}/development_execution")
+                self.context["development_execution"] = devexec_result
+                logger.info("项目开发步骤完成")
+                return devexec_result
             
             else:
                 raise ValueError(f"未知步骤: {step_name}")
@@ -336,6 +351,8 @@ class MasterWorkflow(BaseWorkflow):
             steps.append({"name": "architecture_design", "description": "架构设计"})
         if getattr(self, "development_workflow", None):
             steps.append({"name": "decomposition", "description": "项目分解"})
+        if getattr(self, "development_execution_workflow", None):
+            steps.append({"name": "development_execution", "description": "项目开发"})
         return steps
     
     async def run(self, input_data: str, workflow_mode: str = "sequential", **kwargs) -> Dict[str, Any]:
@@ -357,6 +374,10 @@ class MasterWorkflow(BaseWorkflow):
             # 验证输入
             if not input_data or not input_data.strip():
                 raise ValueError("输入数据不能为空")
+            import os
+            project_slug = get_project_slug(input_data)
+            project_output_dir = os.path.join(OUTPUT_DIR, project_slug)
+            os.makedirs(project_output_dir, exist_ok=True)
             
             # 初始化结果容器
             results = {
@@ -375,17 +396,40 @@ class MasterWorkflow(BaseWorkflow):
                 # 顺序执行所有启用的工作流
                 if self.requirement_workflow:
                     logger.info("开始执行需求分析工作流")
-                    requirement_result = await self._execute_step("requirement_analysis", input_data, **kwargs)
+                    requirement_result = await self.requirement_workflow.run(input_data, output_dir=project_output_dir)
+                    # 将需求分析结果存储到上下文
+                    self.context["requirement_analysis"] = requirement_result
+                    self.context["core_requirements"] = requirement_result.get("core_requirements", {})
                     results["results"]["requirement_analysis"] = requirement_result
                 
                 if self.architecture_workflow:
                     logger.info("开始执行架构设计工作流")
-                    architecture_result = await self._execute_step("architecture_design", input_data, **kwargs)
+                    req_result = self.context.get("requirement_analysis", {})
+                    if "results" in req_result and "requirement_items" in req_result["results"]:
+                        architecture_input = req_result["results"]["requirement_items"]
+                    else:
+                        architecture_input = req_result
+                    architecture_result = await self.architecture_workflow.run(architecture_input, output_dir=project_output_dir)
+                    self.context["architecture_design"] = architecture_result
                     results["results"]["architecture_design"] = architecture_result
                 if getattr(self, "development_workflow", None):
                     logger.info("开始执行项目分解工作流")
-                    development_result = await self._execute_step("decomposition", input_data, **kwargs)
+                    arch_ctx = self.context.get("architecture_design", {})
+                    arch_final = arch_ctx.get("final_result", {})
+                    architecture_analysis = arch_final.get("architecture_design", {})
+                    development_result = await self.development_workflow.execute(architecture_analysis, output_dir=os.path.join(project_output_dir, "decomposition"))
+                    self.context["decomposition"] = development_result
                     results["results"]["decomposition"] = development_result
+                if getattr(self, "development_execution_workflow", None):
+                    logger.info("开始执行项目开发工作流")
+                    devexec_result = await self.development_execution_workflow.execute(
+                        self.context.get("decomposition", {}),
+                        requirements=self.context.get("requirement_analysis", {}),
+                        architecture=self.context.get("architecture_design", {}),
+                        output_dir=os.path.join(project_output_dir, "development_execution")
+                    )
+                    self.context["development_execution"] = devexec_result
+                    results["results"]["development_execution"] = devexec_result
             
             elif workflow_mode == "parallel":
                 # 并行执行工作流
