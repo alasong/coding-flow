@@ -353,6 +353,8 @@ class MasterWorkflow(BaseWorkflow):
             steps.append({"name": "decomposition", "description": "项目分解"})
         if getattr(self, "development_execution_workflow", None):
             steps.append({"name": "development_execution", "description": "项目开发"})
+        if getattr(self, "deployment_workflow", None):
+            steps.append({"name": "deployment", "description": "项目部署"})
         return steps
     
     async def run(self, input_data: str, workflow_mode: str = "sequential", **kwargs) -> Dict[str, Any]:
@@ -430,6 +432,16 @@ class MasterWorkflow(BaseWorkflow):
                     )
                     self.context["development_execution"] = devexec_result
                     results["results"]["development_execution"] = devexec_result
+                if getattr(self, "deployment_workflow", None):
+                    logger.info("开始执行项目部署工作流")
+                    deploy_result = await self.deployment_workflow.execute(
+                        self.context.get("development_execution", {}),
+                        requirements=self.context.get("requirement_analysis", {}),
+                        architecture=self.context.get("architecture_design", {}),
+                        output_dir=os.path.join(project_output_dir, "deployment")
+                    )
+                    self.context["deployment"] = deploy_result
+                    results["results"]["deployment"] = deploy_result
             
             elif workflow_mode == "parallel":
                 # 并行执行工作流

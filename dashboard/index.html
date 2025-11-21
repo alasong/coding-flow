@@ -1,0 +1,141 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Workflow Dashboard</title>
+  <style>
+    body{font-family:Arial;margin:20px}
+    .step{margin:8px 0}
+    .pending{color:#999}
+    .running{color:#f90}
+    .completed{color:#090}
+  </style>
+</head>
+<body>
+  <h1>端到端工作流进展</h1>
+  <textarea id="input" rows="6" cols="80">我们需要开发一个在线电商平台，包含以下功能：
+1. 用户注册和登录系统
+2. 商品展示和搜索功能
+3. 购物车和订单管理
+4. 支付系统集成
+5. 用户评价和反馈系统
+
+技术要求：
+- 支持高并发访问
+- 数据安全性要求高
+- 响应速度快
+- 支持移动端访问</textarea>
+  <br/>
+  <button id="runBtn">开始运行</button>
+  <h2>任务列表</h2>
+  <div id="tasks"></div>
+  <h2>选中任务进展</h2>
+  <div id="status"></div>
+  <div id="env"></div>
+  <div id="metrics"></div>
+  <div id="links"></div>
+  <script>
+    const steps = [
+      'requirement_analysis','architecture_design','decomposition','development_execution','deployment'
+    ]
+    let currentTaskId = localStorage.getItem('currentTaskId') || null
+    function renderStatus(data){
+      const el = document.getElementById('status')
+      let html = `<p>状态: <b>${data.status}</b></p>`
+      html += `<p>项目目录: ${data.project_dir || '-'}</p>`
+      steps.forEach(s=>{
+        const st = (data.steps && data.steps[s] && data.steps[s].status) || 'pending'
+        html += `<div class=\"step ${st}\">${s}: ${st}</div>`
+      })
+      el.innerHTML = html
+      const envEl = document.getElementById('env')
+      const env = data.env || {}
+      let ehtml = ''
+      if(env.ui_url){ ehtml += `<p>界面: <a target=_blank href='${env.ui_url}'>${env.ui_url}</a></p>` }
+      if(env.health_url){ ehtml += `<p>健康: <a target=_blank href='${env.health_url}'>${env.health_url}</a></p>` }
+      if(typeof env.compose_started !== 'undefined'){
+        ehtml += `<p>Compose状态: ${env.compose_started ? '已启动' : '未启动'}</p>`
+      }
+      if(currentTaskId){
+        ehtml += `<button id='startEnv'>启动环境</button> <button id='stopEnv'>停止环境</button>`
+      }
+      envEl.innerHTML = ehtml
+      const startBtn = document.getElementById('startEnv')
+      const stopBtn = document.getElementById('stopEnv')
+      if(startBtn){ startBtn.onclick = async ()=>{ await fetch(`/deploy/start/${currentTaskId}`, {method:'POST'}); pollOne() } }
+      if(stopBtn){ stopBtn.onclick = async ()=>{ await fetch(`/deploy/stop/${currentTaskId}`, {method:'POST'}); pollOne() } }
+      renderMetrics()
+    }
+    async function renderMetrics(){
+      if(!currentTaskId) return
+      try{
+        const r = await fetch(`/metrics/${currentTaskId}`)
+        const m = await r.json()
+        const el = document.getElementById('metrics')
+        let html = '<h3>指标</h3>'
+        html += `<p>覆盖度: ${m.coverage ?? '-'}%</p>`
+        html += `<p>工作包: ${m.work_packages ?? '-'} 个</p>`
+        html += `<p>并发批次: ${m.batches ?? '-'} </p>`
+        el.innerHTML = html
+        // 工件入口链接
+        const linksEl = document.getElementById('links')
+        const d = await (await fetch(`/details/${currentTaskId}`)).json()
+        let lhtml = '<h3>工件入口</h3>'
+        if(d.code_dir){ lhtml += `<p>项目代码: <a target=_blank href='${d.code_dir}'>${d.code_dir}</a></p>` }
+        if(d.deployment_dir){ lhtml += `<p>部署目录: <a target=_blank href='${d.deployment_dir}'>${d.deployment_dir}</a></p>` }
+        if(d.reports_dir){ lhtml += `<p>报告目录: <a target=_blank href='${d.reports_dir}'>${d.reports_dir}</a></p>` }
+        linksEl.innerHTML = lhtml
+      }catch(e){ /* ignore */ }
+    }
+    let lastTasksJson = ''
+    function renderTasks(j){
+      const el = document.getElementById('tasks')
+      const data = j.tasks || j
+      const newJson = JSON.stringify(data||{})
+      if(newJson === lastTasksJson) return
+      lastTasksJson = newJson
+      let html = ''
+      Object.entries(data||{}).forEach(([tid, t])=>{
+        html += `<div><button data-tid='${tid}'>查看</button> <b>${tid}</b> - ${t.status} - ${t.project_dir||'-'}</div>`
+      })
+      el.innerHTML = html
+      el.querySelectorAll('button[data-tid]').forEach(btn=>{
+        btn.onclick = async () => { currentTaskId = btn.getAttribute('data-tid'); localStorage.setItem('currentTaskId', currentTaskId); pollOne() }
+      })
+    }
+    async function pollTasks(){
+      const r = await fetch('/status')
+      const j = await r.json()
+      renderTasks(j)
+      setTimeout(pollTasks, 4000)
+    }
+    function setupWS(){
+      try{
+        const ws = new WebSocket(`ws://${location.host}/ws`)
+        ws.onmessage = (ev)=>{
+          const msg = JSON.parse(ev.data)
+          if(msg.type==='tasks'){
+            renderTasks(msg.data)
+          }
+        }
+      }catch(e){ /* ignore */ }
+    }
+    async function pollOne(){
+      if(!currentTaskId) return
+      const r = await fetch(`/status/${currentTaskId}`)
+      const j = await r.json()
+      renderStatus(j)
+      if(j.status !== 'completed') setTimeout(pollOne, 1000)
+    }
+    document.getElementById('runBtn').onclick = async ()=>{
+      const input = document.getElementById('input').value
+      const r = await fetch('/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({input_text:input})})
+      const j = await r.json()
+      currentTaskId = j.task_id
+      localStorage.setItem('currentTaskId', currentTaskId)
+      pollOne()
+    }
+    pollTasks(); setupWS()
+  </script>
+</body>
+</html>

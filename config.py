@@ -35,6 +35,7 @@ MASTER_WORKFLOW_CONFIG = {
     "enable_architecture_workflow": os.getenv("ENABLE_ARCHITECTURE_WORKFLOW", "true").lower() == "true",
     "enable_development_workflow": os.getenv("ENABLE_DEVELOPMENT_WORKFLOW", "true").lower() == "true",
     "enable_development_execution_workflow": os.getenv("ENABLE_DEVELOPMENT_EXECUTION_WORKFLOW", "true").lower() == "true",
+    "enable_deployment_workflow": os.getenv("ENABLE_DEPLOYMENT_WORKFLOW", "true").lower() == "true",
     "workflow_sequential": os.getenv("WORKFLOW_SEQUENTIAL", "true").lower() == "true",
     "save_intermediate_results": os.getenv("SAVE_INTERMEDIATE_RESULTS", "true").lower() == "true",
     "max_workflow_chain_length": int(os.getenv("MAX_WORKFLOW_CHAIN_LENGTH", "5"))
@@ -52,6 +53,13 @@ DEVELOPMENT_EXECUTION_CONFIG = {
     "language": os.getenv("DEVEXEC_LANGUAGE", "python"),
     "coverage_threshold": float(os.getenv("DEVEXEC_COVERAGE_THRESHOLD", "0.7")),
     "ci_template": os.getenv("DEVEXEC_CI_TEMPLATE", "github_actions"),
+}
+
+# 部署工作流配置
+DEPLOYMENT_WORKFLOW_CONFIG = {
+    "mode": os.getenv("DEPLOYMENT_MODE", "compose"),
+    "registry": os.getenv("DEPLOYMENT_REGISTRY", ""),
+    "auto_start_compose": os.getenv("DEPLOYMENT_AUTO_START_COMPOSE", "false").lower() == "true",
 }
 
 # Agent配置

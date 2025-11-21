@@ -1,0 +1,53 @@
+name: Deployment Preflight
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Generate workflow outputs (sequential)
+        run: |
+          cat > ci_requirements.txt << 'EOF'
+          项目名称: demo
+          我们需要开发一个在线电商平台，包含以下功能：
+          1. 用户注册和登录系统
+          2. 商品展示和搜索功能
+          3. 购物车和订单管理
+          4. 支付系统集成
+          5. 用户评价和反馈系统
+
+          技术要求：
+          - 支持高并发访问
+          - 数据安全性要求高
+          - 响应速度快
+          - 支持移动端访问
+          EOF
+          python main.py -f ci_requirements.txt -m sequential
+
+      - name: Run deployment preflight
+        run: |
+          bash output/demo/deployment/scripts/preflight.sh
+
+      - name: Upload preflight report
+        uses: actions/upload-artifact@v3
+        with:
+          name: preflight-report
+          path: output/demo/deployment/reports/
+
