@@ -20,6 +20,57 @@
 - **覆盖度门禁**: 统计并保证 `Software Unit` 100%覆盖，自动补救未覆盖项
 - **并发编排**: 基于上下文与资源冲突生成并发批次，输出冲突集
 
+## ⭐ 核心功能
+- 端到端工作流：需求→架构→项目分解→项目开发→项目部署，统一输入输出与追踪矩阵
+- 多任务并行：支持同时运行多个需求任务，摘要与详情持久化，刷新/重启后可恢复
+- 队列执行器：后台并发处理任务，避免阻塞；支持扩展到外部消息队列
+- 智能分解与门禁：软件单元抽取、工作包规划、100%覆盖度校验与补救包自动生成
+- 并发编排与资源锁：按上下文与资源冲突分批，数据库同表迁移互斥，共享资源锁定
+- 开发脚手架生成：Web/CLI 模式自动决策，生成代码、测试、OpenAPI、迁移、CI、环境示例与验证报告
+- 部署工件与预检：Dockerfile/Compose/Helm、多环境 `.env`、健康探针、预检脚本与报告；支持一键启动/停止环境
+- 仪表盘与实时推送：WebSocket 实时任务列表与进展，指标与环境入口、工件目录直达
+- CI 预检工作流：自动生成工件并运行构建/健康检查，上传报告作为构件
+- 安全与配置治理：不提交真实密钥，示例 `.env.example` 与 `secrets.example`；换行符与忽略规则统一
+- 可扩展性：Agent 插件化与配置开关，技术栈策略可替换（Python/FastAPI 等），易于接入更多服务与仓库
+
+## 🔗 端到端工作流总览
+- 步骤链路：
+  1. 需求分解（RequirementAnalysisWorkflow）
+  2. 架构设计分解（ArchitectureDesignWorkflow）
+  3. 项目分解（ProjectDevelopmentWorkflow）
+  4. 项目开发（DevelopmentExecutionWorkflow）
+  5. 项目部署（DeploymentWorkflow）
+- 输入/输出：
+  - 需求输入：自由文本或文件（`-f requirements.txt`）
+  - 架构输出：`output/<项目目录>/architecture_workflow_result_*.json`、设计与指南 Markdown
+  - 分解输出：`output/<项目目录>/decomposition/*`（软件单元、工作包、覆盖度与并发报告）
+  - 开发输出：`output/<项目目录>/development_execution/project_code/*`（代码、测试、OpenAPI、迁移、CI、环境示例、验证报告）
+  - 部署输出：`output/<项目目录>/deployment/*`（Dockerfile/Compose/Helm、env、脚本、观测、预检与安全报告）
+- 关键指标与环境：
+  - 覆盖度（%）、工作包数量、并发批次数
+  - 环境入口：`/ui`（前端）与 `/health`（健康检查）
+
+### 运行方式（端到端）
+```bash
+python main.py -f requirements.txt -m sequential --show-mapping
+```
+或启动仪表盘：
+```bash
+python -m uvicorn server:app --reload --port 9000
+```
+访问 `http://localhost:9000/ui/` 提交需求并查看端到端进展、指标与环境入口。
+
+### 界面与服务接口
+- 仪表盘：`/ui`（任务列表、进展、指标、环境入口、工件链接）
+- REST：
+  - `POST /run` 创建任务 → `{ task_id }`
+  - `GET /status` 任务摘要（支持持久化恢复）
+  - `GET /status/{task_id}` 单任务详情（合并持久化信息）
+  - `GET /metrics/{task_id}` 单任务指标（覆盖度/工作包/并发批次/环境）
+  - `GET /details/{task_id}` 单任务工件入口（代码/部署/报告目录）
+  - `POST /deploy/start/{task_id}`、`POST /deploy/stop/{task_id}` 启停Compose环境
+- 文件直达：`/files/<相对output路径>`（代码、部署与报告目录）
+
 ### 技术文档生成
 - **完整文档套件**: 架构设计文档、技术选型说明、部署指南
 - **智能内容生成**: 基于架构设计自动生成技术文档
@@ -343,3 +394,52 @@ python main.py -f requirements.txt -m sequential
 - 任务摘要持久化：`output/tasks_index.json`，服务器重启后可恢复
 - 任务详情持久化：每个项目目录 `status.json`
 - 队列执行器：`infra/queue.py`，并发工作协程；避免阻塞主线程
+## 📦 快速开始
+- 安装依赖：
+  ```bash
+  pip install -r requirements.txt
+  ```
+- 端到端运行（顺序模式）：
+  ```bash
+  python main.py -f requirements.txt -m sequential --show-mapping
+  ```
+- 启动仪表盘（多任务并行 + 实时推送）：
+  ```bash
+  python -m uvicorn server:app --reload --port 9000
+  ```
+  访问 `http://localhost:9000/ui/`，提交需求，查看各步骤进展、指标与环境入口，支持“启动/停止环境”。
+
+## 🧩 核心能力总览
+- 需求分解 → 架构设计分解 → 项目分解 → 项目开发 → 项目部署（端到端闭环）
+- 多任务并行与持久化：`output/tasks_index.json`（摘要）、每项目 `status.json`（详情）
+- 开发工件：项目代码（app/tests/openapi/migrations/CI/env），测试与报告
+- 部署工件：Dockerfile/Compose/Helm、多环境 `.env`、预检脚本与报告、CD占位
+- 界面：实时任务列表（WebSocket）、任务指标（覆盖度/工作包/并发批次）、环境入口（UI/Health）、工件目录直达
+
+## 🔧 提交前检查
+- 清理生成物：确保 `output/` 已清空（已在 `.gitignore` 排除）
+- 换行符规范：`.gitattributes` 已配置（代码LF，Windows脚本CRLF）
+- 密钥安全：不提交任何真实密钥；仅 `.env.example` 与 `secrets.example`
+- 已暂存状态：
+  ```bash
+  git add -A
+  git status -s
+  ```
+- 提交与推送：
+  ```bash
+  git commit -m "feat: workflows, deployment, UI, persistence, cleanup"
+  git remote add origin <your_repo_url>
+  git push -u origin main
+  ```
+
+## 🚀 CI 预检与验证
+- 工作流：`.github/workflows/deployment-preflight.yml`
+- 动作：顺序生成工件 → 运行预检脚本（构建镜像、容器健康检查）→ 上传 `preflight.md` 报告
+- 触发：推送到 `main` 或手动 `workflow_dispatch`
+
+## 📁 重要目录
+- `workflow/`：各工作流（需求/架构/分解/开发/部署）
+- `agents/`：Agent 实现（抽取/规划/匹配/覆盖/并发/脚手架/迁移/CI/安全/预检）
+- `server.py` + `dashboard/`：多任务仪表盘与实时推送/环境控制
+- `infra/`：持久化与简易队列执行器
+- `output/`：分项目输出目录（不提交）
