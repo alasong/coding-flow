@@ -324,7 +324,7 @@ python main.py -f requirements.txt -m sequential
 ### 启动与验证
 - 后端启动：
   ```bash
-  uvicorn app.main:app --reload --port 8000
+  uvicorn server:app --reload --port 8000
   # 健康检查
   curl http://localhost:8000/health
   ```
@@ -381,9 +381,9 @@ python main.py -f requirements.txt -m sequential
 
 - 启动界面服务：
   ```bash
-  python -m uvicorn server:app --reload --port 9000
+  uvicorn server:app --reload --port 8000
   ```
-- 访问仪表盘：`http://localhost:9000/ui/`，可输入需求并运行端到端流程，查看各步骤进展与项目输出目录
+- 访问仪表盘：`http://localhost:8000/ui/`，可输入需求并运行端到端流程，查看各步骤进展与项目输出目录
 - 多任务并行：支持同时运行多个需求任务；刷新后任务摘要可恢复（output/tasks_index.json），选中任务ID持久化到浏览器（localStorage）
 - 实时更新：通过 WebSocket `/ws` 推送任务列表变更，界面自动刷新任务列表
 - 端到端测试：
@@ -405,9 +405,9 @@ python main.py -f requirements.txt -m sequential
   ```
 - 启动仪表盘（多任务并行 + 实时推送）：
   ```bash
-  python -m uvicorn server:app --reload --port 9000
+  uvicorn server:app --reload --port 8000
   ```
-  访问 `http://localhost:9000/ui/`，提交需求，查看各步骤进展、指标与环境入口，支持“启动/停止环境”。
+  访问 `http://localhost:8000/ui/`，提交需求，查看各步骤进展、指标与环境入口，支持“启动/停止环境”。
 
 ## 🧩 核心能力总览
 - 需求分解 → 架构设计分解 → 项目分解 → 项目开发 → 项目部署（端到端闭环）
