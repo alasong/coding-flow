@@ -562,10 +562,24 @@ class ArchitectureDesignWorkflow:
             # 生成文件名
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             
-            # 保存完整的工作流结果
             workflow_file = f"{output_dir}/architecture_workflow_result_{timestamp}.json"
+            fr = workflow_result.get("final_result", {})
+            arch = fr.get("architecture_design", {})
+            val = fr.get("validation_result", {})
+            minimal = {
+                "status": workflow_result.get("status"),
+                "start_time": workflow_result.get("start_time"),
+                "end_time": workflow_result.get("end_time"),
+                "results": {
+                    "architecture_design": arch,
+                    "validation_summary": {
+                        "overall_score": fr.get("overall_score", val.get("overall_score")),
+                        "recommendations": fr.get("recommendations", val.get("recommendations", []))
+                    }
+                }
+            }
             with open(workflow_file, 'w', encoding='utf-8') as f:
-                json.dump(workflow_result, f, ensure_ascii=False, indent=2)
+                json.dump(minimal, f, ensure_ascii=False, indent=2)
             
             # 保存架构设计文档
             if "final_result" in workflow_result and "technical_documents" in workflow_result["final_result"]:
@@ -588,6 +602,15 @@ class ArchitectureDesignWorkflow:
                     deploy_doc_file = f"{output_dir}/deployment_guide_{timestamp}.md"
                     with open(deploy_doc_file, 'w', encoding='utf-8') as f:
                         f.write(technical_docs["deployment_guide"])
+            # 写入过程摘要到MD
+            proc_file = f"{output_dir}/architecture_workflow_process_{timestamp}.md"
+            with open(proc_file, 'w', encoding='utf-8') as f:
+                lines = []
+                steps = workflow_result.get("steps", {})
+                lines.append("# 架构工作流过程")
+                for k, v in steps.items():
+                    lines.append(f"{k}: {v.get('status')}")
+                f.write("\n".join(lines))
             
             logger.info(f"工作流结果已保存到 {output_dir} 目录")
             

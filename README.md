@@ -409,6 +409,36 @@ python main.py -f requirements.txt -m sequential
   ```
   访问 `http://localhost:8000/ui/`，提交需求，查看各步骤进展、指标与环境入口，支持“启动/停止环境”。
 
+### 提交任务（含自定义目录名）
+- PowerShell：
+  ```powershell
+  $body = @{ input_text = "项目名称: demo`n测试端到端运行"; start = "requirement_analysis"; end = "deployment"; slug = "my-shop" } | ConvertTo-Json
+  Invoke-RestMethod -Method Post -Uri http://localhost:8000/run -ContentType "application/json" -Body $body
+  ```
+- curl：
+  ```bash
+  curl -X POST http://localhost:8000/run -H "Content-Type: application/json" -d '{"input_text":"项目名称: demo\n测试端到端运行","start":"requirement_analysis","end":"deployment","slug":"my-shop"}'
+  ```
+
+### 清理历史任务与记录（命令行）
+- 停止服务（如在运行）：在启动终端按 `Ctrl+C` 停止，或关闭进程
+- 清空 `output` 内容并保留目录（推荐）：
+  ```powershell
+  Get-ChildItem output -Force | Remove-Item -Recurse -Force
+  Remove-Item output\tasks_index.json -Force -ErrorAction SilentlyContinue
+  ```
+- 删除并重建 `output` 目录（一次性清理）：
+  ```powershell
+  Remove-Item output -Recurse -Force
+  New-Item -ItemType Directory output
+  ```
+- 重新启动服务：
+  ```powershell
+  uvicorn server:app --reload --port 8000
+  ```
+- 说明：服务启动时会自动创建 `output/`，并挂载 `/files`；清理后如无历史任务，`/status` 返回空任务集合。
+ - 输出文件说明：需求/架构的 JSON 文件仅保留核心结果；过程信息写入对应的 `.md` 文档（如 `requirement_process_*.md`、`architecture_workflow_process_*.md`）。
+
 ## 🧩 核心能力总览
 - 需求分解 → 架构设计分解 → 项目分解 → 项目开发 → 项目部署（端到端闭环）
 - 多任务并行与持久化：`output/tasks_index.json`（摘要）、每项目 `status.json`（详情）

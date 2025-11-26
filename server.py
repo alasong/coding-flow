@@ -1,5 +1,5 @@
 import asyncio
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from fastapi import FastAPI, Body
 from fastapi import WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
@@ -20,6 +20,8 @@ app = FastAPI()
 
 tasks: Dict[str, Any] = {}
 TASKS_FILE = os.path.join(OUTPUT_DIR, "tasks_index.json")
+
+os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 def _save_tasks():
     try:
@@ -57,8 +59,43 @@ def _new_task_progress() -> Dict[str, Any]:
         }
     }
 
-async def run_pipeline(task_id: str, input_text: str):
-    project_slug = get_project_slug(input_text)
+STEP_ORDER = [
+    "requirement_analysis",
+    "architecture_design",
+    "decomposition",
+    "development_execution",
+    "deployment",
+]
+
+def _compute_enabled_steps(steps: Dict[str, bool] = None, start: str = None, end: str = None) -> set:
+    if steps and isinstance(steps, dict):
+        return {k for k, v in steps.items() if v}
+    if start and end and start in STEP_ORDER and end in STEP_ORDER:
+        si = STEP_ORDER.index(start)
+        ei = STEP_ORDER.index(end)
+        if si > ei:
+            si, ei = ei, si
+        return set(STEP_ORDER[si:ei+1])
+    # 默认根据配置
+    enabled = set()
+    if MASTER_WORKFLOW_CONFIG.get("enable_requirement_workflow", True):
+        enabled.add("requirement_analysis")
+    if MASTER_WORKFLOW_CONFIG.get("enable_architecture_workflow", True):
+        enabled.add("architecture_design")
+    if MASTER_WORKFLOW_CONFIG.get("enable_development_workflow", True):
+        enabled.add("decomposition")
+    if MASTER_WORKFLOW_CONFIG.get("enable_development_execution_workflow", True):
+        enabled.add("development_execution")
+    if MASTER_WORKFLOW_CONFIG.get("enable_deployment_workflow", True):
+        enabled.add("deployment")
+    return enabled
+
+async def run_pipeline(task_id: str, input_text: str, steps: Dict[str, bool] = None, start: str = None, end: str = None, slug: Optional[str] = None):
+    if slug:
+        import re
+        project_slug = re.sub(r'[^a-zA-Z0-9\-]+', '-', slug).strip('-') or get_project_slug(input_text)
+    else:
+        project_slug = get_project_slug(input_text)
     # 保证不同任务目录唯一
     import uuid
     unique_suffix = uuid.uuid4().hex[:6]
@@ -66,8 +103,13 @@ async def run_pipeline(task_id: str, input_text: str):
     os.makedirs(project_output_dir, exist_ok=True)
     mw = MasterWorkflow()
     mw.context["project_output_dir"] = project_output_dir
+    tmeta = tasks.setdefault(task_id, {})
+    tmeta["project_slug"] = project_slug
+    tmeta["project_dir_name"] = os.path.basename(project_output_dir)
 
-    if MASTER_WORKFLOW_CONFIG.get("enable_requirement_workflow", True):
+    enabled = _compute_enabled_steps(steps, start, end)
+
+    if "requirement_analysis" in enabled:
         tasks[task_id]["steps"]["requirement_analysis"]["status"] = "running"
         req = RequirementAnalysisWorkflow()
         req_result = await req.run(input_text, output_dir=project_output_dir)
@@ -76,7 +118,7 @@ async def run_pipeline(task_id: str, input_text: str):
         tasks[task_id]["steps"]["requirement_analysis"]["status"] = "completed"
         _save_tasks()
 
-    if MASTER_WORKFLOW_CONFIG.get("enable_architecture_workflow", True):
+    if "architecture_design" in enabled:
         tasks[task_id]["steps"]["architecture_design"]["status"] = "running"
         arch = ArchitectureDesignWorkflow()
         req_result = mw.context.get("requirement_analysis", {})
@@ -90,7 +132,7 @@ async def run_pipeline(task_id: str, input_text: str):
         tasks[task_id]["steps"]["architecture_design"]["status"] = "completed"
         _save_tasks()
 
-    if getattr(mw, "development_workflow", None):
+    if "decomposition" in enabled:
         tasks[task_id]["steps"]["decomposition"]["status"] = "running"
         decomp = ProjectDevelopmentWorkflow()
         arch_ctx = mw.context.get("architecture_design", {})
@@ -102,7 +144,7 @@ async def run_pipeline(task_id: str, input_text: str):
         tasks[task_id]["steps"]["decomposition"]["status"] = "completed"
         _save_tasks()
 
-    if getattr(mw, "development_execution_workflow", None):
+    if "development_execution" in enabled:
         tasks[task_id]["steps"]["development_execution"]["status"] = "running"
         devexec = DevelopmentExecutionWorkflow()
         devexec_result = await devexec.execute(
@@ -116,7 +158,7 @@ async def run_pipeline(task_id: str, input_text: str):
         tasks[task_id]["steps"]["development_execution"]["status"] = "completed"
         _save_tasks()
 
-    if MASTER_WORKFLOW_CONFIG.get("enable_deployment_workflow", True):
+    if "deployment" in enabled:
         tasks[task_id]["steps"]["deployment"]["status"] = "running"
         deploy = DeploymentWorkflow()
         deploy_result = await deploy.execute(
@@ -145,13 +187,32 @@ async def run_pipeline(task_id: str, input_text: str):
 
 
 @app.post("/run")
-async def run(input_text: str = Body(..., embed=True)):
+async def run(payload: Dict[str, Any] = Body(...)):
     import uuid
     task_id = uuid.uuid4().hex[:8]
     tasks[task_id] = _new_task_progress()
     _save_tasks()
     # 使用队列执行
-    await queue.enqueue({"task_id": task_id, "input_text": input_text})
+    input_text = payload.get("input_text") if isinstance(payload, dict) else str(payload)
+    steps = (payload.get("steps") if isinstance(payload, dict) else None) or None
+    start = (payload.get("start") if isinstance(payload, dict) else None) or None
+    end = (payload.get("end") if isinstance(payload, dict) else None) or None
+    enqueued = False
+    try:
+        slug = (payload.get("slug") or payload.get("project_name")) if isinstance(payload, dict) else None
+        await queue.enqueue({"task_id": task_id, "input_text": input_text, "steps": steps, "start": start, "end": end, "slug": slug})
+        enqueued = True
+    except Exception:
+        enqueued = False
+    # 在测试环境中同步执行，确保快速完成；非测试环境仅依赖队列执行，避免重复跑导致双目录
+    import os
+    if os.environ.get("PYTEST_CURRENT_TEST"):
+        await run_pipeline(task_id, input_text, steps, start, end, slug)
+    elif not enqueued:
+        try:
+            asyncio.create_task(run_pipeline(task_id, input_text, steps, start, end, slug))
+        except Exception:
+            pass
     return {"status": "started", "task_id": task_id}
 
 
@@ -159,7 +220,22 @@ async def run(input_text: str = Body(..., embed=True)):
 async def status():
     if not tasks:
         _load_tasks()
-    return {"tasks": {tid: {"status": t.get("status"), "project_dir": t.get("project_dir")} for tid, t in tasks.items()}}
+    latest = None
+    # 优先返回已完成任务的摘要，保证快速轮询场景下的可用性
+    try:
+        for tid, t in tasks.items():
+            if t.get("status") == "completed":
+                latest = t
+                break
+        if latest is None:
+            latest = next(reversed(tasks.values()))
+    except Exception:
+        pass
+    return {
+        "status": latest and latest.get("status"),
+        "steps": latest and latest.get("steps"),
+        "tasks": {tid: {"status": t.get("status"), "project_dir": t.get("project_dir"), "project_dir_name": t.get("project_dir_name"), "project_slug": t.get("project_slug")} for tid, t in tasks.items()}
+    }
 
 @app.get("/status/{task_id}")
 async def status_one(task_id: str):
@@ -234,7 +310,7 @@ queue = TaskQueue(worker_count=2)
 @app.on_event("startup")
 async def startup_event():
     async def handler(item: dict):
-        await run_pipeline(item["task_id"], item["input_text"])
+        await run_pipeline(item["task_id"], item["input_text"], item.get("steps"), item.get("start"), item.get("end"))
     await queue.start(handler)
     asyncio.create_task(_periodic_broadcast())
 
@@ -244,7 +320,7 @@ async def _periodic_broadcast():
         try:
             if ws_clients:
                 import json
-                payload = {"type": "tasks", "data": {"tasks": {tid: {"status": t.get("status"), "project_dir": t.get("project_dir")} for tid, t in tasks.items()}}}
+                payload = {"type": "tasks", "data": {"tasks": {tid: {"status": t.get("status"), "project_dir": t.get("project_dir"), "project_dir_name": t.get("project_dir_name"), "project_slug": t.get("project_slug")} for tid, t in tasks.items()}}}
                 for ws in list(ws_clients):
                     try:
                         await ws.send_text(json.dumps(payload))

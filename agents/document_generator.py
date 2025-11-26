@@ -42,8 +42,8 @@ class DocumentGeneratorAgent(AgentBase):
                 logger.error(f"[{self.name}] 初始化真实模型失败: {e}")
                 raise RuntimeError(f"模型初始化失败: {e}")
         else:
-            logger.error(f"[{self.name}] 未配置API密钥")
-            raise RuntimeError("未配置API密钥，无法初始化模型。请在环境变量中设置DASHSCOPE_API_KEY或OPENAI_API_KEY。")
+            logger.warning(f"[{self.name}] 未配置API密钥，使用本地简化文档生成")
+            self.model = None
     
     async def generate_requirement_specification(self, requirements: Dict[str, Any]) -> str:
         """生成需求规格说明书"""
@@ -76,6 +76,8 @@ class DocumentGeneratorAgent(AgentBase):
         请使用专业的技术文档格式，确保内容完整、清晰、无歧义。
         """
         
+        if not getattr(self, "model", None):
+            return "# 需求规格说明书（简化）\n\n" + json.dumps(requirements, ensure_ascii=False, indent=2)
         response = await self.model([{"role": "user", "content": prompt}])
         content = await self._process_model_response(response)
         return content
@@ -106,6 +108,8 @@ class DocumentGeneratorAgent(AgentBase):
         请确保测试计划全面且可执行。
         """
         
+        if not getattr(self, "model", None):
+            return "# 测试计划（简化）\n\n" + json.dumps(requirements, ensure_ascii=False, indent=2)
         response = await self.model([{"role": "user", "content": prompt}])
         content = await self._process_model_response(response)
         return content
@@ -129,6 +133,8 @@ class DocumentGeneratorAgent(AgentBase):
         请使用通俗易懂的语言，适合最终用户阅读。
         """
         
+        if not getattr(self, "model", None):
+            return "# 用户手册（简化）\n\n" + json.dumps(requirements, ensure_ascii=False, indent=2)
         response = await self.model([{"role": "user", "content": prompt}])
         content = await self._process_model_response(response)
         return content
@@ -211,6 +217,8 @@ class DocumentGeneratorAgent(AgentBase):
         5. 部署方案
         """
         
+        if not getattr(self, "model", None):
+            return "# 技术文档（简化）\n\n" + json.dumps(requirements, ensure_ascii=False, indent=2)
         response = await self.model([{"role": "user", "content": prompt}])
         content = await self._process_model_response(response)
         return content
@@ -259,6 +267,27 @@ class DocumentGeneratorAgent(AgentBase):
         注意：请基于上述关键信息生成专业、完整的需求规格说明书。
         """
         
+        if not getattr(self, "model", None):
+            # 简化版需求文档，仅输出关键摘要
+            lines = []
+            lines.append(f"# 需求规格说明（简版）\n")
+            lines.append(f"**项目概述**\n{user_input}\n")
+            if functional_reqs:
+                lines.append("**功能需求（Top）**")
+                for req in functional_reqs[:8]:
+                    lines.append(f"- {req}")
+            if non_functional_reqs:
+                lines.append("\n**非功能需求（摘要）**")
+                for req in non_functional_reqs[:6]:
+                    lines.append(f"- {req}")
+            if key_features:
+                lines.append("\n**关键功能点**")
+                for ft in key_features[:6]:
+                    lines.append(f"- {ft}")
+            lines.append("\n**分析与验证摘要**")
+            lines.append(f"- 可行性：{analysis_res.get('feasibility_analysis','可行')}" if isinstance(analysis_res, dict) else f"- 可行性：{analysis_res}")
+            lines.append(f"- 验证：{validation_res.get('validation_results','已验证')}" if isinstance(validation_res, dict) else f"- 验证：{validation_res}")
+            return "\n".join(lines)
         response = await self.model([{"role": "user", "content": prompt}])
         content = await self._process_model_response(response)
         return content

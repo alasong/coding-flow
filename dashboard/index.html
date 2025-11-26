@@ -26,6 +26,24 @@
 - 响应速度快
 - 支持移动端访问</textarea>
   <br/>
+  <div>
+    <label>起始节点：</label>
+    <select id="startStep">
+      <option value="requirement_analysis">需求分析</option>
+      <option value="architecture_design">架构设计</option>
+      <option value="decomposition">项目分解</option>
+      <option value="development_execution">项目开发</option>
+      <option value="deployment">部署</option>
+    </select>
+    <label>结束节点：</label>
+    <select id="endStep">
+      <option value="deployment">部署</option>
+      <option value="development_execution">项目开发</option>
+      <option value="decomposition">项目分解</option>
+      <option value="architecture_design">架构设计</option>
+      <option value="requirement_analysis">需求分析</option>
+    </select>
+  </div>
   <button id="runBtn">开始运行</button>
   <h2>任务列表</h2>
   <div id="tasks"></div>
@@ -96,7 +114,8 @@
       lastTasksJson = newJson
       let html = ''
       Object.entries(data||{}).forEach(([tid, t])=>{
-        html += `<div><button data-tid='${tid}'>查看</button> <b>${tid}</b> - ${t.status} - ${t.project_dir||'-'}</div>`
+        const name = t.project_dir_name || t.project_dir || '-'
+        html += `<div><button data-tid='${tid}'>查看</button> <b>${tid}</b> - ${name} - ${t.status}</div>`
       })
       el.innerHTML = html
       el.querySelectorAll('button[data-tid]').forEach(btn=>{
@@ -129,7 +148,9 @@
     }
     document.getElementById('runBtn').onclick = async ()=>{
       const input = document.getElementById('input').value
-      const r = await fetch('/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({input_text:input})})
+      const start = document.getElementById('startStep').value
+      const end = document.getElementById('endStep').value
+      const r = await fetch('/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({input_text:input, start, end})})
       const j = await r.json()
       currentTaskId = j.task_id
       localStorage.setItem('currentTaskId', currentTaskId)

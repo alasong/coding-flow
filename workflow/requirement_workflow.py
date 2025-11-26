@@ -177,35 +177,37 @@ class RequirementAnalysisWorkflow:
         }
     
     def _save_results(self, output_dir: str = "output"):
-        """保存工作流结果"""
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        
-        # 确保输出目录存在
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
-        
-        # 保存JSON结果
-        json_filename = f"requirement_analysis_{timestamp}.json"
-        json_path = os.path.join(output_dir, json_filename)
-        
         import json
+        analysis = self.results.get("analysis_results", {})
+        validation = self.results.get("validation_results", {})
+        minimal = {
+            "status": "success",
+            "results": {
+                "requirement_entries": self.results.get("requirement_items", {}).get("requirement_entries", []),
+                "analysis_summary": analysis.get("feasibility_analysis", analysis),
+                "validation_summary": validation.get("validation_results", validation)
+            }
+        }
+        json_filename = f"requirement_analysis_result_{timestamp}.json"
+        json_path = os.path.join(output_dir, json_filename)
         with open(json_path, 'w', encoding='utf-8') as f:
-            # 确保所有数据都是JSON可序列化的
-            serializable_results = {}
-            for key, value in self.results.items():
-                if key == "requirement_document":
-                    serializable_results[key] = value
-                else:
-                    serializable_results[key] = value
-            
-            json.dump(serializable_results, f, ensure_ascii=False, indent=2)
-        
-        # 保存文档
+            json.dump(minimal, f, ensure_ascii=False, indent=2)
         if 'requirement_document' in self.results:
             doc_filename = f"requirement_document_{timestamp}.md"
             doc_path = os.path.join(output_dir, doc_filename)
             with open(doc_path, 'w', encoding='utf-8') as f:
                 f.write(self.results['requirement_document'])
-        
+        process_md = [
+            "# 需求分析过程",
+            f"开始时间: {datetime.now().isoformat()}",
+            f"功能需求数量: {len(self.results.get('requirement_items', {}).get('functional_requirements', []))}",
+            f"非功能需求数量: {len(self.results.get('requirement_items', {}).get('non_functional_requirements', []))}",
+            f"业务需求数量: {len(self.results.get('requirement_items', {}).get('business_requirements', []))}"
+        ]
+        proc_filename = f"requirement_process_{timestamp}.md"
+        with open(os.path.join(output_dir, proc_filename), 'w', encoding='utf-8') as f:
+            f.write("\n".join(process_md))
         self.results["output_file"] = json_path
-        logger.info(f"结果已保存到 {output_dir} 目录")
