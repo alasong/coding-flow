@@ -1,107 +1,15 @@
-from agentscope.agent import AgentBase
-from agentscope.message import Msg
+from agents.base_agent import BaseAgent
 from typing import Dict, List, Any
 import json
 import logging
-from config import DASHSCOPE_API_KEY, OPENAI_API_KEY, DEFAULT_MODEL
 
 logger = logging.getLogger(__name__)
 
-class RequirementAnalyzerAgent(AgentBase):
+class RequirementAnalyzerAgent(BaseAgent):
     """需求分析Agent - 分析需求的可行性和完整性"""
     
     def __init__(self, name: str, model_config_name: str):
-        super().__init__()
-        self.name = name
-        self.model_config_name = model_config_name
-        
-        # 配置真实的大模型API
-        if DASHSCOPE_API_KEY or OPENAI_API_KEY:
-            try:
-                # 根据API密钥类型选择模型
-                if DASHSCOPE_API_KEY:
-                    from agentscope.model import DashScopeChatModel
-                    self.model = DashScopeChatModel(
-                        model_name="qwen-turbo",
-                        api_key=DASHSCOPE_API_KEY,
-                        generate_kwargs={"temperature": 0.7, "max_tokens": 2000}
-                    )
-                    logger.info(f"[{self.name}] 成功初始化DashScope模型: qwen-turbo")
-                else:
-                    from agentscope.model import OpenAIChatModel
-                    self.model = OpenAIChatModel(
-                        model_name=DEFAULT_MODEL,
-                        api_key=OPENAI_API_KEY,
-                        generate_kwargs={"temperature": 0.7, "max_tokens": 2000}
-                    )
-                    logger.info(f"[{self.name}] 成功初始化OpenAI模型: {DEFAULT_MODEL}")
-                
-            except Exception as e:
-                logger.error(f"[{self.name}] 初始化真实模型失败: {e}")
-                raise RuntimeError(f"模型初始化失败: {e}")
-        else:
-            logger.warning(f"[{self.name}] 未配置API密钥，使用离线分析")
-            self.model = None
-    
-    async def _process_model_response(self, response):
-        """处理模型响应，支持流式和非流式响应"""
-        if hasattr(response, '__aiter__'):
-            # 处理流式响应 - 使用列表存储分块内容避免重复累积
-            content_parts = []
-            last_content = ""
-            
-            async for chunk in response:
-                current_content = ""
-                
-                if hasattr(chunk, 'content'):
-                    # 处理 ChatResponse 对象，content 可能是列表
-                    content_value = chunk.content
-                    if isinstance(content_value, list):
-                        for item in content_value:
-                            if isinstance(item, dict) and 'text' in item:
-                                current_content += item['text']
-                            else:
-                                current_content += str(item)
-                    else:
-                        current_content += str(content_value)
-                elif hasattr(chunk, 'text'):
-                    current_content += chunk.text
-                elif isinstance(chunk, str):
-                    current_content += chunk
-                else:
-                    current_content += str(chunk)
-                
-                # 检查当前内容是否为上次内容的扩展
-                if current_content.startswith(last_content):
-                    # 提取新增部分
-                    new_content = current_content[len(last_content):]
-                    if new_content:
-                        content_parts.append(new_content)
-                else:
-                    # 如果不是扩展，直接添加
-                    if current_content:
-                        content_parts.append(current_content)
-                
-                last_content = current_content
-            
-            # 合并所有分块内容
-            return "".join(content_parts)
-        elif hasattr(response, 'text'):
-            # 处理非流式响应
-            return response.text
-        elif hasattr(response, '__dict__'):
-            # 如果是SimpleNamespace或其他对象，优先使用text属性或转换为dict获取text
-            if 'text' in response.__dict__:
-                return response.__dict__['text']
-            else:
-                # 如果没有text属性，返回对象的字符串表示
-                return str(response)
-        else:
-            # 如果response没有__dict__属性，尝试其他方法
-            if hasattr(response, 'text'):
-                return response.text
-            else:
-                return str(response)
+        super().__init__(name=name, model_config_name=model_config_name)
     
     async def analyze_feasibility(self, requirements: Dict[str, Any]) -> Dict[str, Any]:
         """分析需求的可行性"""
@@ -182,3 +90,57 @@ class RequirementAnalyzerAgent(AgentBase):
         response = await self.model([{"role": "user", "content": prompt}])
         content = await self._process_model_response(response)
         return {"prioritized_requirements": content, "requirements": requirements}
+
+    async def generate_review_points(self, requirements: Dict[str, Any]) -> List[Dict[str, str]]:
+        """生成关键评审要点及默认策略"""
+        logger.info(f"[{self.name}] 生成关键评审要点及默认策略")
+        
+        prompt = f"""
+        基于以下需求分析结果，请识别出最需要人工确认的3-5个关键决策点（Critical Decision Points）：
+        
+        {json.dumps(requirements, ensure_ascii=False, indent=2)}
+        
+        筛选标准：
+        1. 仅选择严重影响架构设计或业务流程的模糊点
+        2. 排除常规、显而易见或低风险的确认项
+        3. 聚焦于性能瓶颈、安全边界、核心业务规则的二义性
+        
+        对于每个决策点，请提供一个合理的“默认策略”（Default Strategy），即如果用户不进行干预，系统将采用的推荐做法。
+        
+        请直接返回JSON列表格式，包含 'point' (评审点描述) 和 'default' (默认策略) 两个字段。例如：
+        [
+            {{
+                "point": "用户注册是否需要手机号验证",
+                "default": "采用邮箱验证，暂不强制手机号"
+            }},
+            {{
+                "point": "订单系统的并发量预估",
+                "default": "按单机100QPS设计，支持横向扩展"
+            }}
+        ]
+        """
+        
+        if not getattr(self, "model", None):
+            return [
+                {"point": "确认核心业务流程完整性", "default": "按通用行业标准流程实现"},
+                {"point": "确认性能指标要求", "default": "响应时间<1s，支持100并发用户"},
+                {"point": "确认安全合规要求", "default": "实现基础的用户认证与鉴权"}
+            ]
+            
+        response = await self.model([{"role": "user", "content": prompt}])
+        content = await self._process_model_response(response)
+        
+        # Parse JSON from content
+        try:
+            # Extract JSON list if embedded in text
+            import re
+            match = re.search(r'\[.*\]', content, re.DOTALL)
+            if match:
+                json_str = match.group(0)
+                return json.loads(json_str)
+            # 兼容旧格式解析
+            lines = [line.strip().lstrip('- ').lstrip('1. ') for line in content.split('\n') if line.strip()]
+            return [{"point": line, "default": "未指定默认策略"} for line in lines[:5]]
+        except Exception as e:
+            logger.warning(f"解析评审要点失败: {e}")
+            return [{"point": content, "default": "未指定默认策略"}]

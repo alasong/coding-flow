@@ -36,15 +36,27 @@ AGENT_CONFIGS = {
     }
 }
 
-class RequirementAnalysisWorkflow:
+from workflow.base_workflow import BaseWorkflow
+
+class RequirementAnalysisWorkflow(BaseWorkflow):
     """需求分析工作流 - 协调多个Agent完成需求分析任务"""
     
     def __init__(self):
         """初始化工作流"""
+        super().__init__("RequirementAnalysisWorkflow", "需求分析工作流")
         self.agents = {}
         self.results = {}
         self._initialize_agents()
     
+    def get_workflow_steps(self) -> List[Dict[str, Any]]:
+        """获取工作流步骤定义"""
+        return [
+            {"name": "requirement_collection", "description": "收集用户需求"},
+            {"name": "requirement_analysis", "description": "分析需求可行性与条目化"},
+            {"name": "requirement_validation", "description": "验证需求完整性"},
+            {"name": "document_generation", "description": "生成需求规格说明书"}
+        ]
+
     def _initialize_agents(self):
         """初始化所有Agent"""
         logger.info("初始化需求分析工作流的Agent...")
@@ -62,8 +74,10 @@ class RequirementAnalysisWorkflow:
             elif agent_type == "document_generator":
                 self.agents[agent_type] = DocumentGeneratorAgent(**config)
     
-    async def run(self, user_input: str, output_dir: str = "output") -> Dict[str, Any]:
+    async def run(self, input_data: Any, **kwargs) -> Dict[str, Any]:
         """运行需求分析工作流"""
+        user_input = input_data
+        output_dir = kwargs.get("output_dir", "output")
         logger.info("开始执行需求分析工作流...")
         
         try:
@@ -86,6 +100,51 @@ class RequirementAnalysisWorkflow:
             analysis_results = await self.agents["requirement_analyzer"].analyze_feasibility(requirement_items)
             self.results["analysis_results"] = analysis_results
             
+            # 步骤2.5: 生成评审要点并进行人工确认
+            logger.info("步骤2.5: 生成关键评审要点...")
+            review_points = await self.agents["requirement_analyzer"].generate_review_points(requirement_items)
+            self.results["review_points"] = review_points
+            
+            # 人工确认环节
+            if kwargs.get("interactive", False):
+                print("\n" + "="*50)
+                print("【人工确认环节】关键决策点与默认策略：")
+                if isinstance(review_points, list):
+                    for i, item in enumerate(review_points):
+                        if isinstance(item, dict):
+                            point = item.get("point", "")
+                            default = item.get("default", "无")
+                            print(f"{i+1}. {point}")
+                            print(f"   [默认策略]: {default}")
+                        else:
+                            # 兼容旧格式（纯字符串）
+                            print(f"{i+1}. {item}")
+                else:
+                    print(review_points)
+                print("="*50)
+                print("说明：输入 'y' 确认通过（使用默认策略），输入 'n' 提供反馈，直接回车使用默认配置继续。")
+                
+                # 在某些环境下 input 可能不可用，添加保护
+                try:
+                    confirm = input("\n请确认以上要点是否已解决或接受？(y/n/default[enter]): ").strip().lower()
+                    
+                    if confirm in ['', 'default']:
+                        logger.info("用户选择使用默认配置继续")
+                        # 可以在这里添加默认处理逻辑
+                    elif confirm not in ['y', 'yes', 'c', 'continue']:
+                        feedback = input("请输入您的反馈或修改意见：")
+                        self.results["user_feedback"] = feedback
+                        logger.info(f"用户反馈: {feedback}")
+                        # 将反馈添加到需求条目中作为备注
+                        requirement_items["user_feedback"] = feedback
+                        
+                        # 如果用户有反馈，可能需要重新分析或更新需求
+                        # 这里简单地将反馈记录下来，实际场景可能需要循环确认
+                except EOFError:
+                    logger.warning("无法获取用户输入，跳过确认，默认继续")
+            else:
+                logger.info(f"非交互模式或自动确认，生成的评审要点: {review_points}")
+
             # 步骤3: 验证需求 - 基于需求条目进行验证
             logger.info("步骤3: 验证需求...")
             validation_results = await self.agents["requirement_validator"].validate_correctness(requirement_items)

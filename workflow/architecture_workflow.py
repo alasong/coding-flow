@@ -9,7 +9,9 @@ from config import AGENT_CONFIGS, ARCHITECTURE_WORKFLOW_CONFIG, OUTPUT_DIR
 
 logger = logging.getLogger(__name__)
 
-class ArchitectureDesignWorkflow:
+from workflow.base_workflow import BaseWorkflow
+
+class ArchitectureDesignWorkflow(BaseWorkflow):
     """架构设计工作流 - 协调架构设计的完整流程"""
     
     def __init__(self, 
@@ -17,7 +19,7 @@ class ArchitectureDesignWorkflow:
                  validator_agent: Optional[ArchitectureValidatorAgent] = None,
                  document_generator: Optional[TechnicalDocumentGeneratorAgent] = None):
         
-        self.name = "架构设计工作流"
+        super().__init__("ArchitectureDesignWorkflow", "架构设计工作流")
         self.analyzer_agent = analyzer_agent or ArchitectureAnalyzerAgent(
             name="架构分析专家",
             model_config_name="architecture_analyzer"
@@ -33,8 +35,30 @@ class ArchitectureDesignWorkflow:
         
         logger.info(f"初始化 {self.name}")
     
-    async def execute(self, requirements: Dict[str, Any], output_dir: str = "output") -> Dict[str, Any]:
+    def get_workflow_steps(self) -> List[Dict[str, Any]]:
+        """获取工作流步骤定义"""
+        return [
+            {
+                "name": "architecture_analysis",
+                "description": "基于需求进行系统架构设计和技术选型",
+                "agent": self.analyzer_agent.name
+            },
+            {
+                "name": "architecture_validation", 
+                "description": "验证架构设计的合理性和可行性",
+                "agent": self.validator_agent.name
+            },
+            {
+                "name": "technical_documentation",
+                "description": "生成架构设计相关的技术文档",
+                "agent": self.document_generator.name
+            }
+        ]
+
+    async def run(self, input_data: Any, **kwargs) -> Dict[str, Any]:
         """执行架构设计工作流"""
+        requirements = input_data
+        output_dir = kwargs.get("output_dir", "output")
         logger.info("开始执行架构设计工作流")
         
         workflow_result = {
@@ -616,10 +640,6 @@ class ArchitectureDesignWorkflow:
             
         except Exception as e:
             logger.error(f"保存工作流结果失败: {e}")
-    
-    async def run(self, requirements: Dict[str, Any], output_dir: str = "output") -> Dict[str, Any]:
-        """运行架构设计工作流 - 兼容主工作流调用"""
-        return await self.execute(requirements, output_dir)
     
     def get_workflow_info(self) -> Dict[str, Any]:
         """获取工作流信息"""

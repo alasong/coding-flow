@@ -2,263 +2,125 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List
 from datetime import datetime
-from ..models.base_model import BaseModel
+from agentscope.agent import AgentBase
+from config import DASHSCOPE_API_KEY, OPENAI_API_KEY, DEFAULT_MODEL
 
 logger = logging.getLogger(__name__)
 
-class BaseAgent(ABC):
+class BaseAgent(AgentBase):
     """Agent基类 - 所有Agent的抽象基类"""
     
-    def __init__(self, name: str, system_prompt: str, model: Optional[BaseModel] = None):
+    def __init__(self, name: str, model_config_name: str, **kwargs):
         """
         初始化Agent基类
         
         Args:
             name: Agent名称
-            system_prompt: 系统提示词
-            model: 模型实例（可选）
+            model_config_name: 模型配置名称
         """
+        super().__init__()
         self.name = name
-        self.system_prompt = system_prompt
-        self.model = model or self._get_default_model()
+        self.model_config_name = model_config_name
         self.created_at = datetime.now()
         self.execution_count = 0
+        self.model = self._init_model()
         
         logger.info(f"初始化Agent: {self.name}")
     
-    def _get_default_model(self) -> BaseModel:
-        """获取默认模型 - 如果模型不可用则抛出错误"""
-        try:
-            from ..models.dashscope_model import DashScopeModel
-            return DashScopeModel()
-        except ImportError as e:
-            logger.error(f"DashScope模型导入失败: {e}")
-            raise RuntimeError("无法导入DashScope模型。请确保已安装agentscope库并正确配置API密钥。")
-        except Exception as e:
-            logger.error(f"无法初始化DashScope模型: {e}")
-            raise RuntimeError(f"模型初始化失败: {e}")
-    
-    @abstractmethod
-    def execute(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        执行Agent的主要功能
-        
-        Args:
-            input_data: 输入数据
-            
-        Returns:
-            Dict[str, Any]: 执行结果
-        """
-        pass
-    
-    def _call_model_with_streaming(self, prompt: str) -> str:
-        """
-        调用模型并处理流式响应
-        
-        Args:
-            prompt: 提示词
-            
-        Returns:
-            str: 模型响应内容
-        """
-        try:
-            self.execution_count += 1
-            logger.debug(f"调用模型: {self.name} (第{self.execution_count}次)")
-            
-            response = self.model.generate_response(prompt)
-            
-            # 处理流式响应
-            if hasattr(response, '__iter__') and not isinstance(response, str):
-                return self._process_streaming_response(response)
-            else:
-                # 优先使用text属性，避免将SimpleNamespace对象转换为字符串
-                if hasattr(response, 'text'):
-                    return response.text
-                elif hasattr(response, '__dict__') and 'text' in response.__dict__:
-                    return response.__dict__['text']
+    def _init_model(self):
+        """初始化模型"""
+        # 配置真实的大模型API
+        if DASHSCOPE_API_KEY or OPENAI_API_KEY:
+            try:
+                # 根据API密钥类型选择模型
+                if DASHSCOPE_API_KEY:
+                    from agentscope.model import DashScopeChatModel
+                    model = DashScopeChatModel(
+                        model_name="qwen-turbo",
+                        api_key=DASHSCOPE_API_KEY,
+                        generate_kwargs={"temperature": 0.7, "max_tokens": 2000}
+                    )
+                    logger.info(f"[{self.name}] 成功初始化DashScope模型: qwen-turbo")
+                    return model
                 else:
-                    # 如果response没有text属性且没有__dict__，尝试其他方法
-                    if hasattr(response, 'text'):
-                        return response.text
-                    else:
-                        return str(response)
+                    from agentscope.model import OpenAIChatModel
+                    model = OpenAIChatModel(
+                        model_name=DEFAULT_MODEL,
+                        api_key=OPENAI_API_KEY,
+                        generate_kwargs={"temperature": 0.7, "max_tokens": 2000}
+                    )
+                    logger.info(f"[{self.name}] 成功初始化OpenAI模型: {DEFAULT_MODEL}")
+                    return model
                 
-        except Exception as e:
-            logger.error(f"模型调用失败: {e}")
-            raise
-    
-    def _process_streaming_response(self, response_stream) -> str:
-        """
-        处理流式响应，避免内容重复累积
-        
-        Args:
-            response_stream: 流式响应迭代器
-            
-        Returns:
-            str: 处理后的完整内容
-        """
-        full_content = ""
-        last_content = ""
-        
-        for chunk in response_stream:
-            if isinstance(chunk, dict) and 'content' in chunk:
-                current_content = chunk['content']
-                # 只保留完整内容，避免增量累积
-                if len(current_content) > len(last_content):
-                    full_content = current_content
-                last_content = current_content
-            elif isinstance(chunk, str):
-                # 如果是字符串，直接作为完整内容
-                full_content = chunk
-        
-        return full_content
-    
-    def _extract_json_from_response(self, response: str, default_key: str = "result") -> Dict[str, Any]:
-        """
-        从响应文本中提取JSON内容
-        
-        Args:
-            response: 响应文本
-            default_key: 默认键名
-            
-        Returns:
-            Dict[str, Any]: 提取的JSON数据
-        """
-        import json
-        import re
-        
-        try:
-            # 尝试查找JSON代码块
-            json_pattern = r'```json\s*({[\s\S]*?})\s*```'
-            match = re.search(json_pattern, response)
-            
-            if match:
-                json_content = match.group(1)
-                return json.loads(json_content)
-            else:
-                # 尝试查找其他JSON格式
-                json_pattern = r'({\s*"[^"]*"\s*:\s*[^}]*})'
-                matches = re.findall(json_pattern, response)
-                if matches:
-                    return json.loads(matches[0])
-                
-                # 如果没有找到JSON，返回默认结构
-                return {default_key: response}
-                
-        except Exception as e:
-            logger.error(f"JSON提取失败: {e}")
-            return {default_key: response, "error": str(e)}
-    
-    def _create_error_result(self, error_message: str, input_data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        """
-        创建错误结果
-        
-        Args:
-            error_message: 错误信息
-            input_data: 输入数据（可选）
-            
-        Returns:
-            Dict[str, Any]: 错误结果
-        """
-        return {
-            "status": "failed",
-            "error": error_message,
-            "agent_name": self.name,
-            "timestamp": datetime.now().isoformat(),
-            "input_data": input_data
-        }
-    
-    def _create_success_result(self, result_data: Dict[str, Any], input_data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        """
-        创建成功结果
-        
-        Args:
-            result_data: 结果数据
-            input_data: 输入数据（可选）
-            
-        Returns:
-            Dict[str, Any]: 成功结果
-        """
-        return {
-            "status": "completed",
-            "result": result_data,
-            "agent_name": self.name,
-            "timestamp": datetime.now().isoformat(),
-            "input_data": input_data,
-            "execution_info": {
-                "execution_count": self.execution_count,
-                "created_at": self.created_at.isoformat()
-            }
-        }
-    
-    def get_agent_info(self) -> Dict[str, Any]:
-        """
-        获取Agent信息
-        
-        Returns:
-            Dict[str, Any]: Agent信息
-        """
-        return {
-            "name": self.name,
-            "type": self.__class__.__name__,
-            "system_prompt_length": len(self.system_prompt),
-            "model_type": type(self.model).__name__,
-            "created_at": self.created_at.isoformat(),
-            "execution_count": self.execution_count,
-            "description": self.__doc__ or "暂无描述"
-        }
-    
-    def validate_input(self, input_data: Dict[str, Any], required_fields: List[str]) -> bool:
-        """
-        验证输入数据
-        
-        Args:
-            input_data: 输入数据
-            required_fields: 必需字段列表
-            
-        Returns:
-            bool: 验证结果
-        """
-        if not input_data:
-            logger.error("输入数据为空")
-            return False
-        
-        missing_fields = []
-        for field in required_fields:
-            if field not in input_data or not input_data[field]:
-                missing_fields.append(field)
-        
-        if missing_fields:
-            logger.error(f"缺少必需字段: {missing_fields}")
-            return False
-        
-        return True
-    
-    def log_execution(self, level: str, message: str, extra_data: Optional[Dict[str, Any]] = None) -> None:
-        """
-        记录执行日志
-        
-        Args:
-            level: 日志级别
-            message: 日志消息
-            extra_data: 额外数据（可选）
-        """
-        log_data = {
-            "agent_name": self.name,
-            "execution_count": self.execution_count,
-            "message": message
-        }
-        
-        if extra_data:
-            log_data.update(extra_data)
-        
-        if level == "debug":
-            logger.debug(log_data)
-        elif level == "info":
-            logger.info(log_data)
-        elif level == "warning":
-            logger.warning(log_data)
-        elif level == "error":
-            logger.error(log_data)
+            except Exception as e:
+                logger.error(f"[{self.name}] 初始化真实模型失败: {e}")
+                # 不抛出异常，允许降级到 Mock 或无模型模式
+                return None
         else:
-            logger.info(log_data)
+            logger.warning(f"[{self.name}] 未配置API密钥，使用离线分析")
+            return None
+    
+    async def _process_model_response(self, response):
+        """处理模型响应，支持流式和非流式响应"""
+        if hasattr(response, '__aiter__'):
+            # 处理流式响应 - 使用列表存储分块内容避免重复累积
+            content_parts = []
+            last_content = ""
+            
+            async for chunk in response:
+                current_content = ""
+                
+                if hasattr(chunk, 'content'):
+                    # 处理 ChatResponse 对象，content 可能是列表
+                    content_value = chunk.content
+                    if isinstance(content_value, list):
+                        for item in content_value:
+                            if isinstance(item, dict) and 'text' in item:
+                                current_content += item['text']
+                            else:
+                                current_content += str(item)
+                    else:
+                        current_content += str(content_value)
+                elif hasattr(chunk, 'text'):
+                    current_content += chunk.text
+                elif isinstance(chunk, str):
+                    current_content += chunk
+                else:
+                    current_content += str(chunk)
+                
+                # 检查当前内容是否为上次内容的扩展
+                if current_content.startswith(last_content):
+                    # 提取新增部分
+                    new_content = current_content[len(last_content):]
+                    if new_content:
+                        content_parts.append(new_content)
+                else:
+                    # 如果不是扩展，直接添加
+                    if current_content:
+                        content_parts.append(current_content)
+                
+                last_content = current_content
+            
+            # 合并所有分块内容
+            return "".join(content_parts)
+        elif hasattr(response, 'text'):
+            # 处理非流式响应
+            return response.text
+        elif hasattr(response, '__dict__'):
+            # 如果是SimpleNamespace或其他对象，优先使用text属性或转换为dict获取text
+            if 'text' in response.__dict__:
+                return response.__dict__['text']
+            else:
+                # 如果没有text属性，返回对象的字符串表示
+                return str(response)
+        else:
+            # 如果response没有__dict__属性，尝试其他方法
+            if hasattr(response, 'text'):
+                return response.text
+            else:
+                return str(response)
+
+    def reply(self, x: dict = None) -> dict:
+        """AgentScope 要求的 reply 方法"""
+        # 这里只是一个占位符，实际逻辑由具体 Agent 实现
+        return x

@@ -395,53 +395,78 @@ class MasterWorkflow(BaseWorkflow):
             
             # 根据模式执行工作流
             if workflow_mode == "sequential":
-                # 顺序执行所有启用的工作流
-                if self.requirement_workflow:
-                    logger.info("开始执行需求分析工作流")
-                    requirement_result = await self.requirement_workflow.run(input_data, output_dir=project_output_dir)
-                    # 将需求分析结果存储到上下文
-                    self.context["requirement_analysis"] = requirement_result
-                    self.context["core_requirements"] = requirement_result.get("core_requirements", {})
-                    results["results"]["requirement_analysis"] = requirement_result
+                # 强制按 ”需求-架构-开发-验证“的流程来做
                 
-                if self.architecture_workflow:
-                    logger.info("开始执行架构设计工作流")
-                    req_result = self.context.get("requirement_analysis", {})
-                    if "results" in req_result and "requirement_items" in req_result["results"]:
-                        architecture_input = req_result["results"]["requirement_items"]
-                    else:
-                        architecture_input = req_result
-                    architecture_result = await self.architecture_workflow.run(architecture_input, output_dir=project_output_dir)
-                    self.context["architecture_design"] = architecture_result
-                    results["results"]["architecture_design"] = architecture_result
+                # 1. 需求分析
+                if not self.requirement_workflow:
+                    raise RuntimeError("需求分析工作流未启用，无法执行完整流程")
+                
+                logger.info("开始执行需求分析工作流")
+                requirement_result = await self.requirement_workflow.run(input_data, output_dir=project_output_dir, **kwargs)
+                self.context["requirement_analysis"] = requirement_result
+                results["results"]["requirement_analysis"] = requirement_result
+                
+                # 2. 架构设计 (依赖需求分析结果)
+                if not self.architecture_workflow:
+                    raise RuntimeError("架构设计工作流未启用，无法执行完整流程")
+                    
+                logger.info("开始执行架构设计工作流")
+                # 确保获取到正确的需求输入
+                req_result = self.context.get("requirement_analysis", {})
+                if "results" in req_result and "requirement_items" in req_result["results"]:
+                    architecture_input = req_result["results"]["requirement_items"]
+                else:
+                    architecture_input = req_result
+                
+                architecture_result = await self.architecture_workflow.run(architecture_input, output_dir=project_output_dir, **kwargs)
+                self.context["architecture_design"] = architecture_result
+                results["results"]["architecture_design"] = architecture_result
+                
+                # 3. 项目分解 (依赖架构设计结果)
                 if getattr(self, "development_workflow", None):
                     logger.info("开始执行项目分解工作流")
                     arch_ctx = self.context.get("architecture_design", {})
                     arch_final = arch_ctx.get("final_result", {})
                     architecture_analysis = arch_final.get("architecture_design", {})
-                    development_result = await self.development_workflow.execute(architecture_analysis, output_dir=os.path.join(project_output_dir, "decomposition"))
-                    self.context["decomposition"] = development_result
-                    results["results"]["decomposition"] = development_result
+                    
+                    if not architecture_analysis:
+                        logger.warning("架构设计结果为空，无法进行项目分解")
+                    else:
+                        development_result = await self.development_workflow.execute(architecture_analysis, output_dir=os.path.join(project_output_dir, "decomposition"))
+                        self.context["decomposition"] = development_result
+                        results["results"]["decomposition"] = development_result
+                
+                # 4. 项目开发 (依赖分解结果)
                 if getattr(self, "development_execution_workflow", None):
                     logger.info("开始执行项目开发工作流")
-                    devexec_result = await self.development_execution_workflow.execute(
-                        self.context.get("decomposition", {}),
-                        requirements=self.context.get("requirement_analysis", {}),
-                        architecture=self.context.get("architecture_design", {}),
-                        output_dir=os.path.join(project_output_dir, "development_execution")
-                    )
-                    self.context["development_execution"] = devexec_result
-                    results["results"]["development_execution"] = devexec_result
+                    decomp_result = self.context.get("decomposition", {})
+                    if not decomp_result:
+                         logger.warning("项目分解结果为空，无法进行开发")
+                    else:
+                        devexec_result = await self.development_execution_workflow.execute(
+                            decomp_result,
+                            requirements=self.context.get("requirement_analysis", {}),
+                            architecture=self.context.get("architecture_design", {}),
+                            output_dir=os.path.join(project_output_dir, "development_execution")
+                        )
+                        self.context["development_execution"] = devexec_result
+                        results["results"]["development_execution"] = devexec_result
+                
+                # 5. 项目部署 (依赖开发结果)
                 if getattr(self, "deployment_workflow", None):
                     logger.info("开始执行项目部署工作流")
-                    deploy_result = await self.deployment_workflow.execute(
-                        self.context.get("development_execution", {}),
-                        requirements=self.context.get("requirement_analysis", {}),
-                        architecture=self.context.get("architecture_design", {}),
-                        output_dir=os.path.join(project_output_dir, "deployment")
-                    )
-                    self.context["deployment"] = deploy_result
-                    results["results"]["deployment"] = deploy_result
+                    exec_result = self.context.get("development_execution", {})
+                    if not exec_result:
+                        logger.warning("项目开发结果为空，无法进行部署")
+                    else:
+                        deploy_result = await self.deployment_workflow.execute(
+                            exec_result,
+                            requirements=self.context.get("requirement_analysis", {}),
+                            architecture=self.context.get("architecture_design", {}),
+                            output_dir=os.path.join(project_output_dir, "deployment")
+                        )
+                        self.context["deployment"] = deploy_result
+                        results["results"]["deployment"] = deploy_result
             
             elif workflow_mode == "parallel":
                 # 并行执行工作流
