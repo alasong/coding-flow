@@ -74,24 +74,61 @@ class ArchitectureDesignWorkflow(BaseWorkflow):
             requirement_entries = requirements.get("requirement_entries", [])
             logger.info(f"接收到 {len(requirement_entries)} 个需求条目")
             
-            # Step 1: 架构分析（基于需求条目）
-            logger.info("步骤1: 架构分析（基于需求条目）")
-            step1_result = await self._step_architecture_analysis(requirements, requirement_entries)
+            # Step 1: 架构提案生成与选择
+            logger.info("步骤1: 架构提案生成与选择")
+            selected_proposal = None
+            
+            # 生成多套提案
+            logger.info("正在生成架构初选方案...")
+            proposals = await self.analyzer_agent.propose_initial_architectures(requirements, count=3)
+            
+            if kwargs.get("interactive", False) and proposals:
+                print("\n" + "="*50)
+                print("【架构方案选择】请选择一个基础架构方案：")
+                for i, p in enumerate(proposals):
+                    print(f"\n方案 {i+1}: {p.get('name')}")
+                    print(f"   理念: {p.get('description')}")
+                    print(f"   技术: {p.get('tech_stack')}")
+                    print(f"   优势: {', '.join(p.get('pros', []))}")
+                    print(f"   劣势: {', '.join(p.get('cons', []))}")
+                print("="*50)
+                
+                try:
+                    choice = input(f"\n请输入方案序号 (1-{len(proposals)}) [默认: 1]: ").strip()
+                    if not choice: choice = "1"
+                    idx = int(choice) - 1
+                    if 0 <= idx < len(proposals):
+                        selected_proposal = proposals[idx]
+                        logger.info(f"用户选择了方案: {selected_proposal.get('name')}")
+                    else:
+                        logger.warning("无效选择，使用默认方案")
+                        selected_proposal = proposals[0]
+                except Exception as e:
+                    logger.warning(f"选择过程出错: {e}，使用默认方案")
+                    selected_proposal = proposals[0]
+            elif proposals:
+                # 非交互模式默认选择第一个
+                selected_proposal = proposals[0]
+                logger.info(f"非交互模式，自动选择方案: {selected_proposal.get('name')}")
+            
+            # Step 2: 架构详细设计（基于选定方案）
+            logger.info("步骤2: 架构详细设计（基于选定方案）")
+            step1_result = await self._step_architecture_analysis(requirements, requirement_entries, selected_proposal)
             workflow_result["steps"]["architecture_analysis"] = step1_result
             
             if step1_result["status"] != "completed":
                 raise Exception(f"架构分析失败: {step1_result.get('error', '未知错误')}")
             
-            # Step 2: 架构验证（包含需求覆盖验证）
-            logger.info("步骤2: 架构验证（包含需求覆盖验证）")
+            # Step 3: 架构验证（包含需求覆盖验证）
+            logger.info("步骤3: 架构验证（包含需求覆盖验证）")
             step2_result = await self._step_architecture_validation(requirements, step1_result["result"], requirement_entries)
             workflow_result["steps"]["architecture_validation"] = step2_result
             
             if step2_result["status"] != "completed":
                 raise Exception(f"架构验证失败: {step2_result.get('error', '未知错误')}")
             
-            # Step 3: 技术文档生成（包含需求追踪矩阵）
-            logger.info("步骤3: 技术文档生成（包含需求追踪矩阵）")
+            # Step 4: 技术文档生成（包含需求追踪矩阵）
+            logger.info("步骤4: 技术文档生成（包含需求追踪矩阵）")
             step3_result = await self._step_technical_documentation(
                 requirements, 
                 step1_result["result"], 
@@ -135,8 +172,8 @@ class ArchitectureDesignWorkflow(BaseWorkflow):
             workflow_result["end_time"] = datetime.now().isoformat()
             return workflow_result
     
-    async def _step_architecture_analysis(self, requirements: Dict[str, Any], requirement_entries: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """架构分析步骤（基于需求条目）"""
+    async def _step_architecture_analysis(self, requirements: Dict[str, Any], requirement_entries: List[Dict[str, Any]], selected_proposal: Dict[str, Any] = None) -> Dict[str, Any]:
+        """架构分析步骤（基于需求条目和选定方案）"""
         logger.info("执行架构分析步骤")
         
         step_result = {
@@ -172,8 +209,8 @@ class ArchitectureDesignWorkflow(BaseWorkflow):
                 }
             }
             
-            # 执行架构分析
-            analysis_result = await self.analyzer_agent.analyze_architecture(analysis_request)
+            # 执行架构分析（传入选定方案）
+            analysis_result = await self.analyzer_agent.analyze_architecture(analysis_request, selected_proposal)
             
             # 添加需求覆盖信息
             analysis_result["requirement_coverage"] = {

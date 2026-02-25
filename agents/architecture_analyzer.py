@@ -47,9 +47,75 @@ class ArchitectureAnalyzerAgent(AgentBase):
             logger.warning(f"[{self.name}] 未配置API密钥，使用离线默认设计")
             self.model = None
     
-    async def analyze_system_architecture(self, requirements: Dict[str, Any]) -> Dict[str, Any]:
-        """分析系统架构"""
-        logger.info(f"[{self.name}] 开始分析系统架构")
+    async def propose_initial_architectures(self, requirements: Dict[str, Any], count: int = 3) -> List[Dict[str, Any]]:
+        """基于需求提出多套初始架构方案"""
+        logger.info(f"[{self.name}] 开始生成 {count} 套初始架构方案")
+        
+        requirement_entries = requirements.get('requirement_entries', [])
+        req_analysis_text = self._build_requirement_analysis_text(requirement_entries)
+        
+        prompt = f"""
+        基于以下详细需求分析，请设计 {count} 套不同的系统架构初步方案（Architecture Proposals），供用户选择：
+        
+        {req_analysis_text}
+        
+        请针对该项目特点（如并发量、安全性、开发成本等权衡），提供 {count} 套有明显差异的架构思路。
+        例如：
+        - 方案A：注重高性能和扩展性的微服务架构
+        - 方案B：注重开发效率和低成本的单体/模块化单体架构
+        - 方案C：注重无服务器(Serverless)或云原生的现代架构
+        
+        每套方案请包含：
+        1. 方案名称与核心理念
+        2. 关键技术栈（前端、后端、数据库）
+        3. 适用场景与优势（Pros）
+        4. 潜在风险与劣势（Cons）
+        5. 对关键需求（特别是高优先级的FR和NFR）的响应策略
+        
+        请以JSON列表格式返回，每个元素是一套方案。
+        """
+        
+        if not getattr(self, "model", None):
+            # 离线模式返回默认模拟数据
+            return [
+                {
+                    "id": "proposal_a",
+                    "name": "高性能微服务架构",
+                    "description": "采用Spring Cloud/K8s体系，服务拆分细致，适合高并发场景。",
+                    "tech_stack": "Java/Spring Boot, React, MySQL, Redis, Kafka",
+                    "pros": ["高扩展性", "故障隔离", "技术成熟"],
+                    "cons": ["运维复杂", "分布式事务难处理", "初期开发成本高"]
+                },
+                {
+                    "id": "proposal_b",
+                    "name": "敏捷模块化单体架构",
+                    "description": "基于Django/Rails的单体应用，内部模块化，适合快速迭代。",
+                    "tech_stack": "Python/Django, Vue.js, PostgreSQL",
+                    "pros": ["开发速度快", "部署简单", "调试方便"],
+                    "cons": ["水平扩展受限", "代码库膨胀后难以维护"]
+                }
+            ]
+            
+        response = await self.model([{"role": "user", "content": prompt}])
+        content = await self._process_model_response(response)
+        
+        try:
+            import re
+            json_match = re.search(r'\[.*\]', content, re.DOTALL)
+            if json_match:
+                proposals = json.loads(json_match.group())
+                # 确保每个方案有ID
+                for idx, p in enumerate(proposals):
+                    if "id" not in p: p["id"] = f"proposal_{idx+1}"
+                return proposals
+        except Exception as e:
+            logger.warning(f"解析多套架构方案失败: {e}")
+            
+        return []
+
+    async def analyze_system_architecture(self, requirements: Dict[str, Any], selected_proposal: Dict[str, Any] = None) -> Dict[str, Any]:
+        """分析系统架构（支持基于选定方案细化）"""
+        logger.info(f"[{self.name}] 开始分析系统架构 (基于方案: {selected_proposal.get('name', '自动推导') if selected_proposal else '自动推导'})")
         
         # 提取关键信息 - 优先使用需求条目
         requirement_entries = requirements.get('requirement_entries', [])
@@ -60,10 +126,21 @@ class ArchitectureAnalyzerAgent(AgentBase):
         # 构建基于需求条目的详细分析请求
         req_analysis_text = self._build_requirement_analysis_text(requirement_entries)
         
+        proposal_context = ""
+        if selected_proposal:
+            proposal_context = f"""
+            【重要】用户已选择以下基础架构方案，请在此基础上进行详细深化和完善，不要偏离该方案的核心选型：
+            方案名称：{selected_proposal.get('name')}
+            核心理念：{selected_proposal.get('description')}
+            预选技术栈：{selected_proposal.get('tech_stack')}
+            """
+        
         prompt = f"""
         基于以下详细需求分析，设计完整的系统架构方案：
         
         {req_analysis_text}
+        
+        {proposal_context}
         
         功能需求：
         {chr(10).join(f'- {req}' for req in functional_reqs[:15]) if functional_reqs else '暂无具体功能需求'}
@@ -253,12 +330,12 @@ class ArchitectureAnalyzerAgent(AgentBase):
         
         return database_design
     
-    async def analyze_architecture(self, requirements: Dict[str, Any]) -> Dict[str, Any]:
+    async def analyze_architecture(self, requirements: Dict[str, Any], selected_proposal: Dict[str, Any] = None) -> Dict[str, Any]:
         """分析架构 - 主方法"""
         logger.info(f"[{self.name}] 开始分析架构")
         
         # 并行执行三个分析任务
-        system_task = self.analyze_system_architecture(requirements)
+        system_task = self.analyze_system_architecture(requirements, selected_proposal)
         database_task = self.design_database_schema(requirements)
         api_task = self.design_api_architecture(requirements)
         
@@ -269,6 +346,7 @@ class ArchitectureAnalyzerAgent(AgentBase):
         
         # 整合结果
         architecture_analysis = {
+            "selected_proposal": selected_proposal, # 记录选择的方案
             "system_architecture": system_arch,
             "database_design": database_schema,
             "api_architecture": api_arch,
