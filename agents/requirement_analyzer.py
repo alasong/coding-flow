@@ -27,7 +27,12 @@ class RequirementAnalyzerAgent(BaseAgent):
         4. 资源可行性：是否有足够的人力和技术资源
         5. 风险分析：潜在的技术和业务风险
         
-        请提供详细的分析结果和建议。
+        请以 JSON 格式返回分析结果，包含以下字段：
+        - feasibility_score: 可行性评分 (0-100)
+        - technical_risks: [str] 技术风险列表
+        - resource_requirements: [str] 资源需求列表
+        - conclusion: 总体结论
+        - analysis_detail: 详细分析说明
         """
         
         if not getattr(self, "model", None):
@@ -40,8 +45,14 @@ class RequirementAnalyzerAgent(BaseAgent):
         
         response = await self.model([{"role": "user", "content": prompt}])
         content = await self._process_model_response(response)
-        return {"feasibility_analysis": content, "requirements": requirements}
-            
+        
+        # 尝试提取 JSON
+        analysis_result = self._extract_json(content)
+        if analysis_result:
+             return {"feasibility_analysis": analysis_result, "requirements": requirements}
+        else:
+             return {"feasibility_analysis": content, "requirements": requirements}
+
     def _extract_json(self, content: str, expected_type=dict):
         """提取并解析JSON"""
         try:
@@ -178,23 +189,14 @@ class RequirementAnalyzerAgent(BaseAgent):
         {json.dumps(requirements, ensure_ascii=False, indent=2)}
         
         筛选标准：
-        1. 仅选择严重影响架构设计或业务流程的模糊点
-        2. 排除常规、显而易见或低风险的确认项
-        3. 聚焦于性能瓶颈、安全边界、核心业务规则的二义性
+        1. 仅选择严重影响架构设计或业务流程的模糊点。
+        2. 排除常规、显而易见或低风险的确认项。
+        3. 聚焦于性能瓶颈、安全边界、核心业务规则的二义性。
         
         对于每个决策点，请提供一个合理的“默认策略”（Default Strategy），即如果用户不进行干预，系统将采用的推荐做法。
         
-        请直接返回JSON列表格式，包含 'point' (评审点描述) 和 'default' (默认策略) 两个字段。例如：
-        [
-            {{
-                "point": "用户注册是否需要手机号验证",
-                "default": "采用邮箱验证，暂不强制手机号"
-            }},
-            {{
-                "point": "订单系统的并发量预估",
-                "default": "按单机100QPS设计，支持横向扩展"
-            }}
-        ]
+        请直接返回JSON列表格式，包含 'point' (评审点描述) 和 'default' (默认策略) 两个字段。
+        不要使用特定的业务作为示例，请根据实际输入的需求生成。
         """
         
         if not getattr(self, "model", None):

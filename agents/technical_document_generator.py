@@ -115,7 +115,7 @@ class TechnicalDocumentGeneratorAgent:
    - 文档标题：系统架构设计说明书
    - 版本号：v1.0
    - 创建日期：{datetime.now().strftime('%Y-%m-%d')}
-   - 作者：AI架构设计助手
+   - 作者：{self.name}
 
 2. **执行摘要**
    - 项目背景和目标
@@ -217,7 +217,7 @@ class TechnicalDocumentGeneratorAgent:
    - 决策框架
 
 2. **前端技术栈**
-   - 框架选择（React/Vue/Angular）
+   - 框架选择
    - UI组件库
    - 状态管理方案
    - 构建工具
@@ -356,8 +356,8 @@ class TechnicalDocumentGeneratorAgent:
         req_text = json.dumps(requirements, ensure_ascii=False).lower()
         
         stack = {
-            "frontend": "Modern Web Framework (e.g., React/Vue)",
-            "backend": "High Performance Backend (e.g., Python/Go/Java)",
+            "frontend": "Modern Web Framework (e.g., React/Vue/Angular)",
+            "backend": "High Performance Backend (e.g., Python/Go/Java/Node.js)",
             "database": "Relational Database (e.g., PostgreSQL/MySQL)",
             "cache": "Distributed Cache (e.g., Redis)",
             "message_queue": "Message Queue (e.g., RabbitMQ/Kafka)",
@@ -365,19 +365,19 @@ class TechnicalDocumentGeneratorAgent:
             "container": "Docker"
         }
         
-        # 简单的启发式规则
+        # 简单的启发式规则，仅用于Fallback时的基本填充，不应作为主要逻辑
         if "mobile" in req_text or "app" in req_text or "android" in req_text or "ios" in req_text:
-            stack["frontend"] = "Flutter / React Native"
+            stack["frontend"] = "Mobile Framework (Flutter/React Native/Native)"
         elif "dashboard" in req_text or "admin" in req_text or "management" in req_text:
-            stack["frontend"] = "React (Ant Design) / Vue (Element Plus)"
+            stack["frontend"] = "Admin Dashboard Framework"
             
         if "data analysis" in req_text or "ai" in req_text or "machine learning" in req_text:
-            stack["backend"] = "Python (FastAPI/Django)"
-            stack["database"] = "PostgreSQL + Vector DB"
+            stack["backend"] = "Python (FastAPI/Django) or similar data-friendly stack"
+            stack["database"] = "PostgreSQL + Vector DB / OLAP DB"
         elif "enterprise" in req_text or "finance" in req_text:
-            stack["backend"] = "Java (Spring Boot)"
+            stack["backend"] = "Enterprise Grade Backend (Java/C#)"
         elif "high concurrency" in req_text or "real-time" in req_text:
-            stack["backend"] = "Go (Gin/Echo)"
+            stack["backend"] = "High Concurrency Backend (Go/Rust/Java)"
             
         return stack
 
@@ -482,7 +482,7 @@ class TechnicalDocumentGeneratorAgent:
 
 **创建日期**: {datetime.now().strftime('%Y-%m-%d')}
 **版本**: v1.0
-**作者**: AI架构设计助手
+**作者**: {self.name}
 """
             
             return doc_content

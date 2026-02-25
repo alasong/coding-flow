@@ -121,6 +121,26 @@ class ArchitectureWorkflowTester:
                 
                 return True, "JSON结构验证通过"
             
+            # 检查 results 结构 (Minimal format)
+            elif "results" in data:
+                results = data["results"]
+                required_fields = ["architecture_design"]
+                missing_fields = [field for field in required_fields if field not in results]
+                
+                if missing_fields:
+                    logger.warning(f"results缺少必要字段: {missing_fields}")
+                    return False, f"results缺少字段: {missing_fields}"
+                
+                # 检查架构分析字段
+                analysis = results["architecture_design"]
+                analysis_fields = ["system_architecture", "database_design", "api_architecture", "technology_stack"]
+                missing_analysis_fields = [field for field in analysis_fields if field not in analysis]
+                
+                if missing_analysis_fields:
+                    logger.warning(f"架构分析缺少字段: {missing_analysis_fields}")
+                
+                return True, "JSON结构验证通过 (Minimal format)"
+
             # 回退到旧格式
             required_fields = ['workflow_info', 'architecture_analysis', 'architecture_validation', 'technical_documents']
             missing_fields = []
@@ -254,8 +274,8 @@ class ArchitectureWorkflowTester:
         }
         
         try:
-            # 执行工作流
-            result = await self.workflow.execute(requirement_doc)
+            # 执行工作流 - 直接调用异步 run 方法
+            result = await self.workflow.run(requirement_doc)
             
             # 验证结果
             if not result:

@@ -99,10 +99,10 @@ class ArchitectureAnalyzerAgent(AgentBase):
         {req_analysis_text}
         
         请针对该项目特点（如并发量、安全性、开发成本等权衡），提供 {count} 套有明显差异的架构思路。
-        例如：
-        - 方案A：注重高性能和扩展性的微服务架构
-        - 方案B：注重开发效率和低成本的单体/模块化单体架构
-        - 方案C：注重无服务器(Serverless)或云原生的现代架构
+        这些方案应该覆盖不同的架构风格和技术取舍，例如：
+        - 方案1：注重高性能和可扩展性的分布式架构
+        - 方案2：注重快速交付和低维护成本的单体/模块化单体架构
+        - 方案3：采用新兴技术栈（如Serverless）的云原生架构
         
         每套方案请包含：
         1. 方案名称与核心理念
@@ -255,15 +255,16 @@ class ArchitectureAnalyzerAgent(AgentBase):
         {chr(10).join(f'- {req}' for req in functional_reqs)}
         
         【严格约束】
-        1. 仅提取需求中明确出现的名词（如“用户”、“待办事项”）。
-        2. **严禁**联想需求中未提及的实体（如“订单”、“商品”、“支付”等，除非需求里真的有）。
-        3. 输出格式为JSON字符串数组。
+        1. 仅提取需求中明确出现的名词，不要臆造。
+        2. **严禁**联想需求中未提及的实体。
+        3. 忽略通用技术名词（如“数据库”、“系统”、“接口”）。
+        4. 输出格式为JSON字符串数组。
         
         示例输入：
-        - 用户可以注册和登录
-        - 用户可以创建待办事项
+        - 借阅者可以查询图书
+        - 管理员可以上架新书
         示例输出：
-        ["User", "TodoItem"]
+        ["Borrower", "Book", "Administrator"]
         """
         
         try:
@@ -291,11 +292,11 @@ class ArchitectureAnalyzerAgent(AgentBase):
         
         【设计要求】
         1. 每个组件必须对应一个或多个核心实体。
-        2. **绝对禁止**创建与核心实体无关的组件（如电商、支付等）。
-        3. 必须包含一个 API Gateway。
+        2. **绝对禁止**创建与核心实体无关的组件。
+        3. 必须包含一个 API Gateway（如果适用）。
         4. 【关键机制设计】：为每个组件设计 1-3 个具体的架构机制（Architectural Mechanisms），以提升系统的鲁棒性、性能或可维护性。
-           - 例如：User Service 可能需要 "Write-Behind Caching" (写后缓存) 或 "Circuit Breaker" (熔断器)。
-           - 例如：Order Service 可能需要 "Event Sourcing" (事件溯源) 或 "Saga Pattern" (Saga模式) 处理分布式事务。
+           - 例如：高频读取组件可能需要 "Read-Through Caching"。
+           - 例如：复杂事务组件可能需要 "Saga Pattern"。
            - 避免使用笼统的 "High Performance"，请使用具体的设计模式名称。
         
         请以JSON列表格式返回组件，每个组件包含：
@@ -430,8 +431,9 @@ class ArchitectureAnalyzerAgent(AgentBase):
         
         【重要原则】
         1. 数据表设计必须严格对应功能需求和系统组件。
-        2. **严禁**生成与上述组件无关的表（如电商、订单、支付等，除非组件列表中包含对应服务）！
+        2. **严禁**生成与上述组件无关的表！
         3. 如果需求很简单，数据库设计也应保持简单。
+        4. 表名和字段名请使用英文。
         
         请提供详细的数据库设计方案，包括：
         1. 数据库类型选择（关系型/非关系型/混合）
@@ -463,7 +465,7 @@ class ArchitectureAnalyzerAgent(AgentBase):
             database_design = self._generate_default_database_design(requirements)
         
         return database_design
-    
+
     async def analyze_architecture(self, requirements: Dict[str, Any], selected_proposal: Dict[str, Any] = None) -> Dict[str, Any]:
         """分析架构 - 主方法"""
         logger.info(f"[{self.name}] 开始分析架构")
@@ -615,9 +617,9 @@ class ArchitectureAnalyzerAgent(AgentBase):
         {component_context}
         
         【重要原则】
-        1. API设计必须严格对应系统组件，禁止生成无关接口（如未提及的电商接口）。
-        2. 如果系统是单体架构，请设计统一的REST API。
-        3. 如果系统是微服务架构，请按服务划分API。
+        1. API设计必须严格对应系统组件，禁止生成无关接口。
+        2. 根据系统架构风格（如 RESTful, GraphQL, gRPC）设计接口。
+        3. 确保接口命名规范、一致。
         
         请提供详细的API设计方案，包括：
         1. API设计风格（RESTful/GraphQL/gRPC等）
