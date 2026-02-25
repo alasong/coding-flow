@@ -146,10 +146,24 @@ class ArchitectureDesignWorkflow(BaseWorkflow):
         }
         
         try:
+            # 提取功能和非功能需求列表（兼容 Artifacts 结构）
+            constraints = requirements.get("constraints", {})
+            if isinstance(constraints, dict):
+                functional_reqs = constraints.get("functional", [])
+                non_functional_reqs = constraints.get("non_functional", [])
+                business_reqs = constraints.get("business", [])
+            else:
+                functional_reqs = requirements.get("functional_requirements", [])
+                non_functional_reqs = requirements.get("non_functional_requirements", [])
+                business_reqs = requirements.get("business_requirements", [])
+
             # 构建包含需求条目的分析请求
             analysis_request = {
                 "requirements": requirements,
                 "requirement_entries": requirement_entries,
+                "functional_requirements": functional_reqs,
+                "non_functional_requirements": non_functional_reqs,
+                "business_requirements": business_reqs,
                 "analysis_context": {
                     "total_requirements": len(requirement_entries),
                     "functional_requirements": len([r for r in requirement_entries if r.get("type") == "FR"]),

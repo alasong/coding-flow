@@ -39,6 +39,45 @@ class RequirementAnalyzerAgent(BaseAgent):
         content = await self._process_model_response(response)
         return {"feasibility_analysis": content, "requirements": requirements}
     
+    async def refine_requirements(self, requirements: Dict[str, Any], validation_issues: List[str]) -> Dict[str, Any]:
+        """根据验证问题修复需求"""
+        logger.info(f"[{self.name}] 根据验证反馈修复需求")
+        
+        prompt = f"""
+        基于以下需求和验证发现的严重问题，请修复并完善需求：
+        
+        原始需求：
+        {json.dumps(requirements, ensure_ascii=False, indent=2)}
+        
+        发现的问题：
+        {chr(10).join(f'- {issue}' for issue in validation_issues)}
+        
+        请直接输出修复后的完整需求JSON结构，保持原有字段（functional_requirements, non_functional_requirements等），
+        并确保所有问题都已解决。不要包含markdown格式标记。
+        """
+        
+        if not getattr(self, "model", None):
+             # 离线模式简单模拟修复
+             requirements["refinement_note"] = "已根据验证反馈进行模拟修复"
+             return requirements
+             
+        response = await self.model([{"role": "user", "content": prompt}])
+        content = await self._process_model_response(response)
+        
+        try:
+            import re
+            json_match = re.search(r'\{.*\}', content, re.DOTALL)
+            if json_match:
+                refined_reqs = json.loads(json_match.group())
+                # 确保关键字段存在
+                if "functional_requirements" not in refined_reqs:
+                    refined_reqs["functional_requirements"] = requirements.get("functional_requirements", [])
+                return refined_reqs
+        except Exception as e:
+            logger.error(f"解析修复后的需求JSON失败: {e}")
+            
+        return requirements
+
     async def analyze_completeness(self, requirements: Dict[str, Any]) -> Dict[str, Any]:
         """分析需求的完整性"""
         prompt = f"""

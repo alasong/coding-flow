@@ -7,20 +7,29 @@ Last updated: 2026-02-24 23:04:50
 ## 🌟 核心功能
 
 ### 智能需求分析
-- **多智能体协作**: 需求收集 → 分析 → 验证 → 文档生成
+- **多智能体协作**: 需求收集 → 需求分析 → 评审确认（Human-in-the-Loop）→ 需求验证 → 文档生成
 - **结构化输出**: 自动生成JSON和Markdown格式的需求规格说明书
 - **需求条目化**: 将用户需求分解为可追踪的功能需求(FR)和非功能需求(NFR)
+- **人工评审环节**: 自动提取关键决策点，支持交互式确认与策略调整
+- **独立验证报告**: 生成包含正确性、完整性、一致性及测试用例建议的验证报告（作为输出件供参考，不阻断流程）
 
 ### 架构设计自动化
 - **智能架构生成**: 基于需求分析结果自动生成系统架构
 - **组件映射**: 智能匹配需求与架构组件，支持100%需求覆盖
 - **架构验证**: 多维度评估架构设计的合理性和可行性
 
-### 项目分解与并发
-- **软件单元抽取**: 统一抽取系统组件、数据库对象、API端点为 `Software Unit`
-- **工作包分解**: 按域/类型分桶，限制每包≤3单元，LLM友好粒度
-- **覆盖度门禁**: 统计并保证 `Software Unit` 100%覆盖，自动补救未覆盖项
-- **并发编排**: 基于上下文与资源冲突生成并发批次，输出冲突集
+### 项目分解工作流 (DevelopmentWorkflow)
+1. **软件单元抽取 (SoftwareUnitExtractorAgent)**
+   - 从架构设计中提取可开发的软件单元（组件、API、数据库表等）。
+2. **工作包规划 (WorkPackagePlannerAgent)**
+   - 将软件单元组合成合理的工作包，考虑依赖关系和开发顺序。
+3. **并发编排 (ConcurrencyOrchestratorAgent)**
+   - 分析工作包之间的依赖，生成可并行开发的批次。
+
+### 项目开发与部署
+1. **代码生成**: 基于工作包生成实际代码、测试用例及配置文件。
+2. **环境部署**: 生成 Docker Compose/Helm Chart 并启动环境。
+3. **验证反馈**: 运行测试及健康检查，反馈结果。
 
 ## ⭐ 核心功能
 - 端到端工作流：需求→架构→项目分解→项目开发→项目部署，统一输入输出与追踪矩阵
@@ -54,7 +63,11 @@ Last updated: 2026-02-24 23:04:50
 
 ### 运行方式（端到端）
 ```bash
-python main.py -f requirements.txt -m sequential --show-mapping
+# 标准交互式模式
+python main.py
+
+# 指定文件运行
+python main.py -f requirements.txt -m sequential
 ```
 或启动仪表盘：
 ```bash
@@ -99,19 +112,22 @@ OPENAI_API_KEY=your_openai_key_here
 
 ### 交互式使用
 ```bash
-# 启动交互式模式
+# 启动交互式模式（默认）
 python main.py
+# 进入后可输入需求文本，或选择从文件读取
 ```
 
 ### 批量处理
 ```bash
 # 使用需求文件批量处理
 python main.py -f requirements.txt -m sequential
+```
 
+### 调试模式
+```bash
 # 带调试信息的完整模式
 python main.py -f requirements.txt -m sequential --debug-requirements --debug-architecture --show-mapping --validate-coverage
 ```
-
 ## 📋 工作流模式
 
 | 模式 | 描述 | 命令 |
@@ -154,8 +170,10 @@ python main.py --info
 系统将在 `output/<项目目录>/` 生成分项目的文档套件（不混放）：
 
 ### 需求分析结果
-- `requirement_analysis_YYYYMMDD_HHMMSS.json` - 结构化需求数据
+- `requirement_analysis_YYYYMMDD_HHMMSS.json` - 结构化需求数据（含Artifacts）
 - `requirement_document_YYYYMMDD_HHMMSS.md` - 需求规格说明书
+- `requirement_validation_report_YYYYMMDD_HHMMSS.md` - 需求验证报告（正确性/完整性/一致性/测试用例）
+- `requirement_process_YYYYMMDD_HHMMSS.md` - 分析过程记录
 
 ### 架构设计结果  
 - `architecture_workflow_result_YYYYMMDD_HHMMSS.json` - 架构设计数据
@@ -193,46 +211,70 @@ python main.py --info
 └──────────────┘  └──────────────┘  └──────────────┘
 ```
 
-### 多智能体协作
-```
-需求收集Agent ──→ 需求分析Agent ──→ 需求验证Agent ──→ 文档生成Agent
-     │                │                │              │
-     └────────────────┴────────────────┴────→ 协调器
-```
+### 需求分析工作流 (RequirementAnalysisWorkflow)
+1. **需求收集 (RequirementCollectorAgent)**
+   - 收集用户原始输入，整理为初步的功能需求、非功能需求及业务目标。
+2. **可行性分析 (RequirementAnalyzerAgent)**
+   - 分析技术可行性、风险点及关键约束。
+3. **人工评审 (Human-in-the-Loop)**
+   - 提取关键决策点（如数据存储方案、认证方式等），提供默认策略供用户确认或修改。
+   - *注：此步骤为阻塞式交互，确保关键路径符合用户预期。*
+4. **需求验证 (RequirementValidatorAgent)**
+   - 并行执行正确性、完整性、一致性验证及测试用例生成。
+   - *注：验证结果生成独立报告 `requirement_validation_report_*.md`，作为参考输出件，不直接阻断流程，需人工查阅。*
+5. **文档生成 (DocumentGeneratorAgent)**
+   - 基于确认后的需求条目生成最终的《需求规格说明书》。
+6. **产物输出**
+   - **交付件 (Artifacts)**: 结构化的需求条目与约束，传递给架构设计流程。
+   - **输出件 (Outputs)**: 需求文档、验证报告、过程记录等本地文件。
+
+### 架构设计工作流 (ArchitectureDesignWorkflow)
+1. **输入接收**
+   - 接收需求分析阶段的 **交付件 (Artifacts)**，包含明确的 FR/NFR 列表。
+2. **架构分析 (ArchitectureAnalyzerAgent)**
+   - 基于需求条目设计系统架构、技术栈及核心组件。
+3. **架构验证 (ArchitectureValidatorAgent)**
+   - 验证架构设计对需求的覆盖率及合理性。
+4. **文档生成 (TechnicalDocumentGeneratorAgent)**
+   - 生成《架构设计文档》及《需求追踪矩阵》。
 
 ## 🎯 端到端验证要点
- - 需求→架构：需求条目追踪矩阵，覆盖率统计与评分（100%）
- - 架构→分解：Software Unit 抽取与 Work Package 绑定（100%覆盖）
- - 并行能力：并发批次生成，冲突集识别（DB同表迁移互斥、共享资源锁）
- - 文档套件：架构设计/技术选型/部署指南 + 项目分解总览
+1. **需求一致性**: 检查需求文档中的FR/NFR与原始输入的一致性。
+2. **架构覆盖率**: 确保每个需求条目在架构设计中都有对应的组件或策略。
+3. **验证闭环**: 查看 `requirement_validation_report_*.md` 确认需求无明显缺陷；查看 `requirement_traceability_matrix.md` 确认架构覆盖情况。
 
 ## 📁 项目结构
+```
+coding-flow/
+├── agents/                 # 智能体实现
+│   ├── requirement_*.py    # 需求分析相关Agent
+│   ├── architecture_*.py   # 架构设计相关Agent
+│   ├── document_*.py       # 文档生成相关Agent
+│   └── ...
+├── workflow/               # 工作流编排
+│   ├── master_workflow.py  # 主流程控制
+│   ├── requirement_workflow.py # 需求分析流程
+│   ├── architecture_workflow.py # 架构设计流程
+│   └── ...
+├── config.py               # 配置文件
+├── main.py                 # 入口程序
+└── output/                 # 输出目录 (按项目/时间戳隔离)
+```
 
-```
-├── main.py                          # 主程序入口
-├── config.py                        # 系统配置
-├── requirements.txt                 # 项目依赖
-├── agents/                          # 智能体实现
-│   ├── requirement_collector.py     # 需求收集智能体
-│   ├── requirement_analyzer.py    # 需求分析智能体  
-│   ├── requirement_validator.py   # 需求验证智能体
-│   ├── architecture_analyzer.py   # 架构分析智能体
-│   ├── architecture_validator.py  # 架构验证智能体
-│   ├── technical_document_generator.py # 技术文档生成智能体
-│   ├── software_unit_extractor.py  # 软件单元抽取智能体
-│   ├── work_package_planner.py     # 工作包规划智能体
-│   ├── unit_workpackage_matcher.py # 单元-工作包匹配智能体
-│   ├── coverage_auditor.py         # 覆盖度审计智能体
-│   ├── concurrency_orchestrator.py # 并发编排智能体
-│   └── dev_plan_generator.py       # 开发计划生成智能体
-├── workflow/                        # 工作流定义
-│   ├── master_workflow.py         # 主工作流协调器
-│   ├── requirement_workflow.py    # 需求分析工作流
-│   ├── architecture_workflow.py   # 架构设计工作流
-│   └── development_workflow.py    # 项目分解工作流
-├── utils/                           # 工具函数
-└── output/                        # 输出目录
-```
+## ❓ 常见问题
+
+**Q: 需求验证报告 (Validation Report) 中的问题会自动修复吗？**
+A: **目前不会。**
+- **设计逻辑**: `RequirementValidatorAgent` 的定位是 "QA (质量保证)" 而非 "Dev (开发)"。它生成的验证报告（包含正确性、完整性、一致性、测试用例建议）是作为**输出件**供用户和架构师参考的。
+- **处理流程**: 用户应查阅 `requirement_validation_report_*.md`。如果发现严重问题，应调整原始需求输入并重新运行分析流程。工作流不会自动回滚，以避免在没有人工确认的情况下偏离用户意图。
+
+**Q: 需求分析的 "Artifacts" 和 "Outputs" 有什么区别？**
+A: 
+- **Artifacts (交付件)**: 是传递给下一个环节（架构设计）的结构化数据，仅包含经过确认的需求条目和约束，不包含过程报告。
+- **Outputs (输出件)**: 是保存在本地供人阅读的文件，包含完整的文档、验证报告和过程记录。
+
+**Q: 如何查看生成的文档？**
+A: 所有生成的文档和JSON数据都保存在 `output/` 目录下，按时间戳和项目名称分类。
 
 ## 🔧 配置选项
 
@@ -259,32 +301,41 @@ MASTER_WORKFLOW_CONFIG = {
     "enable_requirement_workflow": True,
     "enable_architecture_workflow": True,
     "enable_development_workflow": True,
+    "enable_development_execution_workflow": True,
+    "enable_deployment_workflow": True,
     "save_intermediate_results": True
 }
+```
 
+```python
 DEVELOPMENT_WORKFLOW_CONFIG = {
     "max_units_per_package": 3,
-    "require_full_coverage": True
+    "require_full_coverage": True,
+    "max_parallel_batches": 5,
+    "enable_concurrency": True,
+    "unit_extraction_mode": "detailed"
+}
+```
+
+```python
+DEVELOPMENT_EXECUTION_CONFIG = {
+    "language": "python",
+    "coverage_threshold": 80,
+    "ci_template": "github_actions"
 }
 ```
 
 ## 🐛 故障排除
+**Q: 启动时报错 `ModuleNotFoundError`**
+A: 请确保在项目根目录下运行，并已安装依赖：`pip install -r requirements.txt`
 
-### 常见问题
-
-**Q: API调用失败怎么办？**
-A: 检查API密钥配置，确保网络连接正常，查看日志文件获取详细信息。
-
-**Q: 覆盖度未达100%怎么办？**  
-A: 系统会自动生成补救包补齐未覆盖单元；也可调小 `max_units_per_package` 控制粒度后重跑。
-
-**Q: 输出文档为空怎么办？**
-A: 检查模型响应是否正常，使用 `--log-level DEBUG` 查看详细日志。
+**Q: 模型调用超时**
+A: 检查 `.env` 中的 API Key 是否有效，或在 `config.py` 中增加 `timeout` 值。
 
 ## 🤝 贡献指南
 
 欢迎提交Issue和Pull Request来改进系统功能。
-
+  
 ## 📄 许可证
 
 MIT License - 详见 [LICENSE](LICENSE) 文件

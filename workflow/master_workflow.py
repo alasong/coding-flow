@@ -62,7 +62,10 @@ class MasterWorkflow(BaseWorkflow):
             
             # 从需求分析结果中获取需求条目
             requirement_entries = []
-            if "results" in requirement_analysis and "requirement_items" in requirement_analysis["results"]:
+            if "artifacts" in requirement_analysis:
+                # 优先使用标准化的交付件
+                requirement_entries = requirement_analysis["artifacts"].get("requirement_entries", [])
+            elif "results" in requirement_analysis and "requirement_items" in requirement_analysis["results"]:
                 # 新的需求分析工作流返回结构
                 requirement_entries = requirement_analysis["results"]["requirement_items"].get("requirement_entries", [])
             elif "requirement_entries" in requirement_analysis:
@@ -413,8 +416,15 @@ class MasterWorkflow(BaseWorkflow):
                 logger.info("开始执行架构设计工作流")
                 # 确保获取到正确的需求输入
                 req_result = self.context.get("requirement_analysis", {})
-                if "results" in req_result and "requirement_items" in req_result["results"]:
+                
+                # 优先使用标准化的交付件 (Artifacts)
+                if "artifacts" in req_result:
+                    architecture_input = req_result["artifacts"]
+                    logger.info("使用标准化的需求交付件作为架构设计输入")
+                elif "results" in req_result and "requirement_items" in req_result["results"]:
+                    # 兼容旧版本结构
                     architecture_input = req_result["results"]["requirement_items"]
+                    logger.info("使用旧版需求分析结果作为架构设计输入")
                 else:
                     architecture_input = req_result
                 

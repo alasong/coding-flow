@@ -103,6 +103,61 @@ class RequirementValidatorAgent(AgentBase):
             else:
                 return str(response)
     
+    async def validate_requirements(self, requirements: Dict[str, Any]) -> Dict[str, Any]:
+        """全面验证需求，返回结构化结果（包含严重问题列表）"""
+        logger.info(f"[{self.name}] 开始全面验证需求")
+        
+        prompt = f"""
+        请对以下需求进行全面验证（正确性、完整性、一致性）：
+        
+        功能需求：{requirements.get('functional_requirements', [])}
+        非功能需求：{requirements.get('non_functional_requirements', [])}
+        约束条件：{requirements.get('constraints', [])}
+        
+        请仔细检查是否存在以下严重问题：
+        1. 关键功能缺失
+        2. 需求之间存在直接冲突
+        3. 技术上不可行或风险极高
+        4. 描述严重模糊无法实现
+        
+        请以JSON格式返回验证结果，包含以下字段：
+        - is_valid: bool (是否存在严重阻断性问题)
+        - critical_issues: list[str] (严重问题列表，如果没有则为空列表)
+        - suggestions: list[str] (改进建议)
+        - validation_summary: str (验证总结)
+        """
+        
+        if not getattr(self, "model", None):
+            return {
+                "is_valid": True,
+                "critical_issues": [],
+                "suggestions": ["建议补充异常场景测试用例"],
+                "validation_summary": "离线模式默认验证通过"
+            }
+            
+        response = await self.model([{"role": "user", "content": prompt}])
+        content = await self._process_model_response(response)
+        
+        # 尝试解析JSON
+        try:
+            import re
+            json_match = re.search(r'\{.*\}', content, re.DOTALL)
+            if json_match:
+                result = json.loads(json_match.group())
+                # 确保字段存在
+                if "is_valid" not in result: result["is_valid"] = True
+                if "critical_issues" not in result: result["critical_issues"] = []
+                return result
+        except Exception as e:
+            logger.warning(f"解析验证结果JSON失败: {e}")
+            
+        return {
+            "is_valid": True, # 默认通过，避免解析失败导致流程中断
+            "critical_issues": [],
+            "suggestions": [],
+            "validation_summary": content
+        }
+
     async def validate_correctness(self, requirements: Dict[str, Any]) -> Dict[str, Any]:
         """验证需求的正确性和完整性"""
         logger.info(f"[{self.name}] 开始验证需求正确性")

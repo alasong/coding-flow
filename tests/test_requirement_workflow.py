@@ -44,7 +44,7 @@ async def test_requirement_workflow():
         # 注意：在自动化测试中通常设置为False，这里为了演示设为True
         # 但为了避免阻塞，我们模拟非交互模式或提供预设输入
         print("\n[开始执行工作流]...")
-        result = await workflow.run(input_data, output_dir="tests/output", interactive=True)
+        result = await workflow.run(input_data, output_dir="tests/output", interactive=False)
         
         # 验证结果
         print("\n" + "="*60)
@@ -77,7 +77,10 @@ async def test_requirement_workflow():
             # 4. 检查验证结果
             validation = results.get("validation_results", {})
             print(f"\n4. 验证结果:")
-            print(f"   - 验证通过: {validation.get('passed', 'Unknown')}")
+            print(f"   - 正确性验证: {len(str(validation.get('correctness', '')))} 字符")
+            print(f"   - 完整性验证: {len(str(validation.get('completeness', '')))} 字符")
+            print(f"   - 一致性验证: {len(str(validation.get('consistency', '')))} 字符")
+            print(f"   - 测试用例生成: {len(str(validation.get('test_cases', '')))} 字符")
             
             # 5. 检查生成的文档
             doc = results.get("requirement_document", "")
@@ -85,6 +88,29 @@ async def test_requirement_workflow():
             print(f"   - 文档长度: {len(doc)} 字符")
             
             print(f"\n详细输出文件: {result.get('output_file')}")
+            
+            # 6. 检查验证报告文件
+            import glob
+            report_files = glob.glob("tests/output/requirement_validation_report_*.md")
+            if report_files:
+                print(f"\n[SUCCESS] 找到验证报告文件: {report_files[0]}")
+            else:
+                print("\n[FAILED] 未找到验证报告文件")
+                
+            # 7. 验证交付件（Artifacts）与输出件（Outputs）的区别
+            artifacts = result.get("artifacts", {})
+            outputs = result.get("outputs", {})
+            
+            print(f"\n7. 交付件与输出件验证:")
+            if "validation_report" in outputs:
+                 print("   [SUCCESS] validation_report 存在于 outputs 中")
+            else:
+                 print("   [FAILED] validation_report 不存在于 outputs 中")
+                 
+            if "validation_report" not in artifacts:
+                 print("   [SUCCESS] validation_report 不存在于 artifacts 中 (符合要求)")
+            else:
+                 print("   [FAILED] validation_report 存在于 artifacts 中 (不符合要求)")
             
         else:
             print(f"[FAILED] 工作流执行失败: {result.get('error')}")
