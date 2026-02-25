@@ -55,6 +55,15 @@ async def test_architecture_workflow():
                 "status": "analyzed"
             }
         ],
+        "functional_requirements": [
+            "用户可以通过手机号注册和登录系统",
+            "用户可以创建待办事项，包含标题、描述和截止日期",
+            "用户可以将待办事项标记为完成"
+        ],
+        "non_functional_requirements": [
+             "系统API响应时间应小于500ms",
+             "支持1000用户并发"
+        ],
         "constraints": {
             "functional": [
                 "用户可以通过手机号注册和登录系统",

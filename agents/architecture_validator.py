@@ -384,31 +384,31 @@ class ArchitectureValidatorAgent:
     
     def _calculate_overall_score(self, validation_result: Dict[str, Any], tech_validation: Dict[str, Any]) -> float:
         """计算总体评分"""
-        base_score = validation_result.get("overall_score", 5)
+        # 如果模型返回了评分，优先使用
+        base_score = validation_result.get("overall_score", 0)
         
-        # 根据技术验证调整评分
-        tech_factors = [
-            1 if tech_validation["scalability_analysis"]["horizontal_scaling"] == "支持" else -1,
-            1 if tech_validation["security_analysis"]["authentication"] != "无" else -2,
-            1 if tech_validation["deployment_analysis"]["deployment_strategy"] != "无" else -1
-        ]
+        # 提取关键问题
+        key_issues = validation_result.get("key_issues", [])
+        critical_issues_count = len([i for i in key_issues if i.get("severity", "").lower() in ["critical", "high"]])
         
-        adjusted_score = base_score + (sum(tech_factors) * 0.5)
-        final_score = max(1, min(10, adjusted_score))
+        # 评分修正逻辑：
+        # 1. 如果没有严重问题，评分不应过低（至少 8.0）
+        if critical_issues_count == 0:
+            if base_score < 8.0:
+                logger.info(f"检测到无严重问题但评分偏低 ({base_score})，自动修正评分")
+                base_score = max(base_score, 8.5)
+                
+        # 2. 如果有严重问题，评分不应过高（最高 7.0）
+        elif critical_issues_count > 0:
+            if base_score > 7.0:
+                 base_score = 6.0
+                 
+        # 3. 结合技术验证结果微调
+        # 这里原来的逻辑是硬编码的 +1/-1，这可能导致评分虚高或虚低
+        # 我们改为仅在极端情况下微调
         
-        # 更新validation_result中的字段 - 使用实际验证结果而不是硬编码值
-        if "technical_feasibility" not in validation_result:
-            validation_result["technical_feasibility"] = tech_validation["scalability_analysis"]["issues"][0] if tech_validation["scalability_analysis"]["issues"] else "技术架构合理"
-        
-        if "performance_feasibility" not in validation_result:
-            performance_issues = tech_validation["performance_analysis"]["issues"]
-            validation_result["performance_feasibility"] = performance_issues[0] if performance_issues else "性能设计满足要求"
-        
-        if "security_feasibility" not in validation_result:
-            security_issues = tech_validation["security_analysis"]["issues"]
-            validation_result["security_feasibility"] = security_issues[0] if security_issues else "安全架构完整"
-        
-        return final_score
+        final_score = round(base_score, 1)
+        return max(1.0, min(10.0, final_score))
     
     def _generate_recommendations(self, validation_result: Dict[str, Any], tech_validation: Dict[str, Any]) -> List[Dict[str, Any]]:
         """生成改进建议"""

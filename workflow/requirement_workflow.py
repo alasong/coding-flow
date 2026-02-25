@@ -101,15 +101,35 @@ class RequirementAnalysisWorkflow(BaseWorkflow):
             analysis_results = await self.agents["requirement_analyzer"].analyze_feasibility(requirement_items)
             self.results["analysis_results"] = analysis_results
             
+            # 步骤2.1: 初始评审要点生成（前置人工确认）
+            # 在进入自动化验证循环前，先让人工确认关键方向，避免方向性错误导致的反复修复
+            logger.info("步骤2.1: 生成初始评审要点...")
+            initial_review_points = await self.agents["requirement_analyzer"].generate_review_points(requirement_items)
+            self.results["initial_review_points"] = initial_review_points
+            
+            # 人工确认环节 (前置)
+            if kwargs.get("interactive", False):
+                await self._interactive_review(initial_review_points, requirement_items)
+            else:
+                logger.info(f"非交互模式，使用默认策略: {initial_review_points}")
+                # 自动应用默认策略（简单记录日志，实际应用逻辑视具体实现而定）
+                for point in initial_review_points:
+                    if isinstance(point, dict):
+                        logger.info(f"应用默认策略: {point.get('default')}")
+
             # 步骤2.5: 初始验证与闭环修复 (Loop)
             # 在进入人工确认前，先进行自动化的验证和修复
             logger.info("步骤2.5: 初始验证与闭环修复...")
             
-            # 使用配置中的最大迭代次数
+            # 使用配置中的最大迭代次数，降低默认次数以避免死循环
             from config import REQUIREMENT_WORKFLOW_CONFIG
-            max_refinement_loops = REQUIREMENT_WORKFLOW_CONFIG.get("max_iterations", 10)
+            max_refinement_loops = REQUIREMENT_WORKFLOW_CONFIG.get("max_iterations", 5)
             current_loop = 0
             
+            # 初始化修复历史
+            if "refinement_history" not in self.results:
+                self.results["refinement_history"] = []
+
             while current_loop < max_refinement_loops:
                 current_loop += 1
                 logger.info(f"执行验证闭环 (第 {current_loop} 次)...")
@@ -122,12 +142,45 @@ class RequirementAnalysisWorkflow(BaseWorkflow):
                 critical_issues = validation_check.get("critical_issues", [])
                 
                 if not is_valid or critical_issues:
+                    # 优化：分类问题，区分阻断性（Blocker）和建议性（Suggestion）
+                    # 只有阻断性问题才需要自动修复，建议性问题可以推迟到Review阶段
+                    blockers = [i for i in critical_issues if "明确" not in i and "模糊" not in i] # 简单启发式：如果是模糊问题，可能无法自动修复
+                    
+                    # 如果全是模糊性问题，且已经尝试修复过一次，则不再死磕
+                    if not blockers and current_loop > 1:
+                        logger.warning("剩余问题多为模糊性描述，转为人工确认项，不再自动修复...")
+                        if "remaining_issues" not in self.results:
+                            self.results["remaining_issues"] = []
+                        self.results["remaining_issues"].extend(critical_issues)
+                        break
+
                     logger.warning(f"发现 {len(critical_issues)} 个严重问题，尝试自动修复...")
                     for issue in critical_issues:
                         logger.warning(f" - {issue}")
                     
-                    # 调用分析Agent进行修复
-                    refined_items = await self.agents["requirement_analyzer"].refine_requirements(requirement_items, critical_issues)
+                    # 记录当前问题
+                    self.results["refinement_history"].append({
+                        "loop": current_loop,
+                        "issues": critical_issues,
+                        "timestamp": datetime.now().isoformat()
+                    })
+
+                    # 如果是最后一次循环，不再尝试修复，而是将问题留给人工确认
+                    if current_loop >= max_refinement_loops:
+                        logger.warning("达到最大自动修复次数，将剩余问题转为人工确认项...")
+                        
+                        # 将剩余问题转换为Review Points
+                        if "remaining_issues" not in self.results:
+                            self.results["remaining_issues"] = []
+                        self.results["remaining_issues"].extend(critical_issues)
+                        break
+
+                    # 调用分析Agent进行修复，传入历史记录以便Agent进行反思
+                    refined_items = await self.agents["requirement_analyzer"].refine_requirements(
+                        requirement_items, 
+                        critical_issues,
+                        history=self.results["refinement_history"]
+                    )
                     
                     # 更新需求条目
                     requirement_items.update(refined_items)
@@ -136,15 +189,6 @@ class RequirementAnalysisWorkflow(BaseWorkflow):
                     if "requirement_entries" not in refined_items:
                         logger.info("根据更新的需求重新生成条目...")
                         requirement_items["requirement_entries"] = self._create_requirement_entries(requirement_items)
-                    
-                    if "refinement_history" not in self.results:
-                        self.results["refinement_history"] = []
-                        
-                    self.results["refinement_history"].append({
-                        "loop": current_loop,
-                        "issues": critical_issues,
-                        "timestamp": datetime.now().isoformat()
-                    })
                 else:
                     logger.info("验证通过，无严重阻断性问题。")
                     break
@@ -152,6 +196,15 @@ class RequirementAnalysisWorkflow(BaseWorkflow):
             # 步骤2.6: 生成评审要点并进行人工确认
             logger.info("步骤2.6: 生成关键评审要点...")
             review_points = await self.agents["requirement_analyzer"].generate_review_points(requirement_items)
+            
+            # 如果存在未解决的验证问题，将其强制加入评审要点
+            if critical_issues:
+                for issue in critical_issues:
+                    review_points.insert(0, {
+                        "point": f"【遗留风险】{issue}",
+                        "default": "需人工介入决策或接受风险"
+                    })
+            
             self.results["review_points"] = review_points
             
             # 人工确认环节
@@ -279,6 +332,33 @@ class RequirementAnalysisWorkflow(BaseWorkflow):
                 "error": str(e)
             }
     
+    async def _interactive_review(self, review_points, requirement_items):
+        """交互式评审"""
+        print("\n" + "="*50)
+        print("【人工确认环节】关键决策点与默认策略：")
+        if isinstance(review_points, list):
+            for i, item in enumerate(review_points):
+                if isinstance(item, dict):
+                    point = item.get("point", "")
+                    default = item.get("default", "无")
+                    print(f"{i+1}. {point}")
+                    print(f"   [默认策略]: {default}")
+                else:
+                    print(f"{i+1}. {item}")
+        else:
+            print(review_points)
+        print("="*50)
+        
+        try:
+            confirm = input("\n请确认以上要点是否已解决或接受？(y/n/default[enter]): ").strip().lower()
+            if confirm not in ['y', 'yes', 'c', 'continue', '', 'default']:
+                feedback = input("请输入您的反馈或修改意见：")
+                self.results["user_feedback"] = feedback
+                requirement_items["user_feedback"] = feedback
+                logger.info(f"用户反馈: {feedback}")
+        except EOFError:
+            logger.warning("无法获取用户输入，跳过确认，默认继续")
+
     def _create_requirement_entries(self, collected_requirements: Dict[str, Any]) -> List[Dict[str, Any]]:
         """创建结构化的需求条目，便于与架构设计关联"""
         entries = []

@@ -830,6 +830,18 @@ class ArchitectureDesignWorkflow(BaseWorkflow):
                             f.write(f"  - 实施: {rec.get('implementation', '')}\n")
                     else:
                         f.write("暂无改进建议。\n")
+
+            # 保存标准化交付件 (Artifacts) - 新增部分
+            artifacts = {
+                "architecture_design": arch,
+                "technical_documents": workflow_result.get("final_result", {}).get("technical_documents", {}),
+                "validation_report": val,
+                "requirement_traceability": workflow_result.get("final_result", {}).get("requirement_traceability", {})
+            }
+            artifacts_file = f"{output_dir}/architecture_artifacts_{timestamp}.json"
+            with open(artifacts_file, 'w', encoding='utf-8') as f:
+                json.dump(artifacts, f, ensure_ascii=False, indent=2)
+            logger.info(f"架构设计标准化交付件已保存: {artifacts_file}")
                         
             logger.info(f"工作流结果已保存到 {output_dir} 目录")
             

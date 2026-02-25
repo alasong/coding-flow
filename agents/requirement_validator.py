@@ -140,22 +140,46 @@ class RequirementValidatorAgent(AgentBase):
         
         # 尝试解析JSON
         try:
+            # 预处理：修复常见的JSON格式错误
             import re
-            json_match = re.search(r'\{.*\}', content, re.DOTALL)
+            content = re.sub(r'//.*', '', content)
+            content = re.sub(r'/\*.*?\*/', '', content, flags=re.DOTALL)
+            content = re.sub(r',(\s*[}\]])', r'\1', content)
+
+            # 优先匹配代码块
+            code_block_match = re.search(r'```json\s*([\s\S]*?)\s*```', content)
+            if code_block_match:
+                content = code_block_match.group(1)
+            else:
+                code_block_match_2 = re.search(r'```\s*([\s\S]*?)\s*```', content)
+                if code_block_match_2:
+                    content = code_block_match_2.group(1)
+
+            # 匹配最外层JSON对象
+            json_match = re.search(r'\{[\s\S]*\}', content)
             if json_match:
-                result = json.loads(json_match.group())
+                json_str = json_match.group(0)
+                result = json.loads(json_str)
                 # 确保字段存在
                 if "is_valid" not in result: result["is_valid"] = True
                 if "critical_issues" not in result: result["critical_issues"] = []
                 return result
+            
+            # 尝试直接解析
+            result = json.loads(content)
+            if "is_valid" not in result: result["is_valid"] = True
+            if "critical_issues" not in result: result["critical_issues"] = []
+            return result
+
         except Exception as e:
             logger.warning(f"解析验证结果JSON失败: {e}")
+            logger.debug(f"原始内容: {content[:200]}...")
             
         return {
             "is_valid": True, # 默认通过，避免解析失败导致流程中断
             "critical_issues": [],
             "suggestions": [],
-            "validation_summary": content
+            "validation_summary": content if isinstance(content, str) else str(content)
         }
 
     async def validate_correctness(self, requirements: Dict[str, Any]) -> Dict[str, Any]:

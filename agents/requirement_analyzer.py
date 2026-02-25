@@ -54,59 +54,103 @@ class RequirementAnalyzerAgent(BaseAgent):
              return {"feasibility_analysis": content, "requirements": requirements}
 
     def _extract_json(self, content: str, expected_type=dict):
-        """提取并解析JSON"""
+        """提取并解析结构化数据 (优先尝试YAML，降级尝试JSON)"""
+        import yaml
+        import re
+        
         try:
-            # 1. 尝试提取代码块
-            import re
-            code_block_match = re.search(r'```json\s*([\s\S]*?)\s*```', content)
-            if code_block_match:
-                json_str = code_block_match.group(1)
-                return json.loads(json_str)
-            
-            code_block_match_2 = re.search(r'```\s*([\s\S]*?)\s*```', content)
-            if code_block_match_2:
+            # 0. 预处理：移除注释
+            content = re.sub(r'(?m)^\s*//.*', '', content)
+            content = re.sub(r'/\*.*?\*/', '', content, flags=re.DOTALL)
+
+            # 1. 尝试提取YAML代码块
+            code_block_match_yaml = re.search(r'```yaml\s*([\s\S]*?)\s*```', content)
+            if code_block_match_yaml:
                 try:
-                    json_str = code_block_match_2.group(1)
-                    return json.loads(json_str)
+                    return yaml.safe_load(code_block_match_yaml.group(1))
                 except:
                     pass
 
-            # 2. 尝试提取最外层JSON对象或数组
-            if expected_type == list:
-                match = re.search(r'\[[\s\S]*\]', content)
-            else:
-                match = re.search(r'\{[\s\S]*\}', content)
-                
-            if match:
-                json_str = match.group(0)
-                return json.loads(json_str)
-                
-            # 3. 尝试直接解析
-            return json.loads(content)
+            # 2. 尝试提取JSON代码块
+            code_block_match = re.search(r'```json\s*([\s\S]*?)\s*```', content)
+            if code_block_match:
+                try:
+                    # 先尝试当JSON解析
+                    return json.loads(code_block_match.group(1))
+                except:
+                    try:
+                        # 失败则尝试当YAML解析（JSON是YAML的子集）
+                        return yaml.safe_load(code_block_match.group(1))
+                    except:
+                        pass
+
+            # 3. 尝试通用代码块
+            code_block_match_2 = re.search(r'```\s*([\s\S]*?)\s*```', content)
+            if code_block_match_2:
+                raw_str = code_block_match_2.group(1)
+                try:
+                    return yaml.safe_load(raw_str)
+                except:
+                    pass
+
+            # 4. 直接尝试解析全文
+            try:
+                parsed = yaml.safe_load(content)
+                if isinstance(parsed, (dict, list)):
+                    return parsed
+            except:
+                pass
             
-        except json.JSONDecodeError as e:
-            logger.error(f"JSON解析失败: {e}")
-            logger.debug(f"原始内容: {content}")
+            # 5. 尝试JSON降级解析（处理不规范JSON）
+            try:
+                # 修复末尾逗号
+                fixed_content = re.sub(r',(\s*[}\]])', r'\1', content)
+                return json.loads(fixed_content)
+            except:
+                pass
+
             return None
+            
         except Exception as e:
-            logger.error(f"JSON提取未知错误: {e}")
+            logger.error(f"提取结构化数据失败: {e}")
+            logger.debug(f"原始内容: {content[:500]}...")
             return None
             
-    async def refine_requirements(self, requirements: Dict[str, Any], validation_issues: List[str]) -> Dict[str, Any]:
+    async def refine_requirements(self, requirements: Dict[str, Any], validation_issues: List[str], history: List[Dict[str, Any]] = None) -> Dict[str, Any]:
         """根据验证问题修复需求"""
         logger.info(f"[{self.name}] 根据验证反馈修复需求")
         
+        # 构建历史记录文本
+        history_text = ""
+        if history and len(history) > 0:
+            history_text = "\n【历史修复尝试（失败）】\n"
+            for h in history[-3:]: # 只看最近3次
+                history_text += f"- 第{h.get('loop')}次循环尝试解决的问题: {h.get('issues')}\n"
+            history_text += "\n注意：请避免重复上述失败的修复策略。如果发现某些约束无法同时满足（例如：不进行身份认证 vs 需要数据安全），请进行权衡（Trade-off），修改其中一项约束以消除冲突，或者明确标注该冲突需人工决策。\n"
+
         prompt = f"""
-        基于以下需求和验证发现的严重问题，请修复并完善需求：
+        基于以下需求和验证发现的严重问题，请修复并完善需求。
         
         原始需求：
         {json.dumps(requirements, ensure_ascii=False, indent=2)}
         
-        发现的问题：
+        当前发现的问题：
         {chr(10).join(f'- {issue}' for issue in validation_issues)}
         
-        请直接输出修复后的完整需求JSON结构，保持原有字段（functional_requirements, non_functional_requirements等），
-        并确保所有问题都已解决。不要包含markdown格式标记。
+        {history_text}
+
+        请执行以下步骤（思维链）：
+        1. **分析问题根源**：针对每个问题，分析是描述不清、逻辑冲突还是技术不可行？
+        2. **制定修复策略**：
+           - 如果是逻辑冲突（如安全 vs 便捷），明确选择一个优先方向（Trade-off）。
+           - 如果是描述模糊，补充具体的量化指标（如 "高性能" -> "响应时间<500ms"）。
+           - 如果是信息缺失，根据通用行业标准进行合理假设补充。
+        3. **执行修复**：修改需求内容。
+        4. **自我检查**：确保修复后的需求不会引入新的冲突。
+        
+        请直接输出修复后的完整需求，使用 **YAML格式**。
+        保持原有字段（functional_requirements, non_functional_requirements等）。
+        不要包含markdown格式标记，直接输出YAML内容。
         """
         
         if not getattr(self, "model", None):

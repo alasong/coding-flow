@@ -33,7 +33,7 @@ class TechnicalDocumentGeneratorAgent:
                     model = DashScopeChatModel(
                         model_name="qwen-turbo",
                         api_key=DASHSCOPE_API_KEY,
-                        generate_kwargs={"temperature": 0.3, "max_tokens": 4000}
+                        generate_kwargs={"temperature": 0.3, "max_tokens": 6000}
                     )
                     logger.info(f"[{self.name}] 成功初始化DashScope模型: qwen-turbo")
                     return model
@@ -42,7 +42,7 @@ class TechnicalDocumentGeneratorAgent:
                     model = OpenAIChatModel(
                         model_name=DEFAULT_MODEL,
                         api_key=OPENAI_API_KEY,
-                        generate_kwargs={"temperature": 0.3, "max_tokens": 4000}
+                        generate_kwargs={"temperature": 0.3, "max_tokens": 4096}
                     )
                     logger.info(f"[{self.name}] 成功初始化OpenAI模型: {DEFAULT_MODEL}")
                     return model
@@ -730,131 +730,87 @@ class TechnicalDocumentGeneratorAgent:
             return str(content) if not isinstance(content, str) else content
 
     async def _call_model_with_streaming(self, prompt: str) -> str:
-        """调用模型并处理流式响应"""
+        """调用模型，支持自动续写以解决截断问题"""
+        full_content = ""
+        # 初始消息列表
+        messages = [{"role": "user", "content": prompt}]
+        
         try:
-            logger.debug(f"调用模型: {self.name}")
+            # 最多尝试3次续写 (1次初始 + 2次续写)
+            for attempt in range(3):
+                logger.debug(f"调用模型: {self.name} (尝试 {attempt + 1})")
+                
+                # 调用模型 (非流式调用，获取完整响应)
+                response = await self.model(messages)
+                
+                # 提取本次生成的文本内容
+                content = self._extract_content(response)
+                
+                # 累加内容
+                full_content += content
+                
+                # 检查内容是否完整
+                if self._is_complete(full_content):
+                    break
+                
+                # 如果内容不完整，准备续写
+                logger.info(f"检测到内容可能截断 (长度: {len(full_content)})，尝试续写...")
+                
+                # 将本次生成的内容加入历史
+                messages.append({"role": "assistant", "content": content})
+                # 添加续写指令
+                messages.append({"role": "user", "content": "请继续完成上面的内容，直接接续，不要重复已生成的部分。"})
             
-            # 调用模型 - DashScopeChatModel的正确调用方式
-            response = await self.model([{"role": "user", "content": prompt}])
+            # 最终检查
+            if not self._is_complete(full_content):
+                logger.warning(f"文档生成可能仍被截断，末尾字符: {full_content[-20:]}")
+                # 尝试简单的补全
+                if full_content.strip().endswith("|"):
+                    full_content += "\n\n---"
             
-            # 处理流式响应
-            content = ""
-            
-            # 检查响应类型
-            if isinstance(response, str):
-                # 如果直接返回字符串
-                return response
-            elif hasattr(response, 'content'):
-                # 如果响应对象有content属性
-                if isinstance(response.content, str):
-                    return response.content
-                elif isinstance(response.content, list):
-                    # content是[{"type": "text", "text": "..."}]格式
-                    for item in response.content:
-                        if isinstance(item, dict) and item.get('type') == 'text':
-                            content += item.get('text', '')
-                        else:
-                            content += str(item)
-                    return content
-                else:
-                    # 如果content是其他类型，尝试转换为字符串
-                    return str(response.content)
-            elif hasattr(response, 'text') and isinstance(response.text, str):
-                # 如果响应对象有text属性
-                return response.text
-            elif hasattr(response, 'text'):
-                # 如果text属性存在但不是字符串
-                return str(response.text)
-            else:
-                # 检查响应是否可以直接迭代（流式响应）
-                if hasattr(response, '__aiter__'):
-                    # 处理异步迭代器（流式响应）
-                    try:
-                        full_content = ""
-                        last_content = ""
-                        
-                        async for chunk in response:
-                            # DashScopeChatModel返回的是ChatResponse对象，content属性是列表
-                            if hasattr(chunk, 'content') and isinstance(chunk.content, list):
-                                # content是[{"type": "text", "text": "..."}]格式
-                                current_content = ""
-                                for item in chunk.content:
-                                    if isinstance(item, dict) and item.get('type') == 'text':
-                                        current_content += item.get('text', '')
-                                    else:
-                                        current_content += str(item)
-                                # 只保留完整内容，避免增量累积
-                                if len(current_content) > len(last_content):
-                                    full_content = current_content
-                                last_content = current_content
-                            elif hasattr(chunk, 'text'):
-                                current_content = chunk.text if isinstance(chunk.text, str) else str(chunk.text)
-                                # 只保留完整内容，避免增量累积
-                                if len(current_content) > len(last_content):
-                                    full_content = current_content
-                                last_content = current_content
-                            elif hasattr(chunk, 'message'):
-                                current_content = str(chunk.message)
-                                # 只保留完整内容，避免增量累积
-                                if len(current_content) > len(last_content):
-                                    full_content = current_content
-                                last_content = current_content
-                            elif isinstance(chunk, str):
-                                # 如果是字符串，直接作为完整内容
-                                full_content = chunk
-                                last_content = chunk
-                            else:
-                                # 如果没有可识别的属性，尝试转换为字符串
-                                current_content = str(chunk)
-                                if len(current_content) > len(last_content):
-                                    full_content = current_content
-                                last_content = current_content
-                        
-                        # 如果流式结束但内容不完整，记录警告
-                        if not full_content.strip().endswith(("。", ".", "!", "}", "]", ">", "```", "---", "**版本**: v1.0")):
-                             logger.warning("文档生成可能被截断，末尾字符: " + full_content[-20:])
-                             # 尝试自动补全（简单的）
-                             if full_content.strip().endswith("|"):
-                                 full_content += "\n\n---"
-                        
-                        return full_content
-                    except Exception as stream_error:
-                        logger.warning(f"流式处理失败，尝试直接返回响应: {stream_error}")
-                        # 如果流式处理失败，尝试直接返回响应的字符串表示
-                        return str(response)
-                else:
-                    # 如果响应对象既不是字符串也没有content/text属性，也不是可异步迭代的
-                    # 尝试检查是否有其他可能的属性
-                    logger.warning(f"无法识别的响应类型: {type(response)}")
-                    
-                    # 首先尝试直接访问响应对象，看是否是字典或类似结构
-                    try:
-                        # 尝试将响应转换为字典
-                        response_dict = dict(response) if hasattr(response, '__dict__') else None
-                        if response_dict:
-                            # 如果是字典，尝试获取常见的键
-                            for key in ['content', 'text', 'message', 'data', 'result', 'output', 'response']:
-                                if key in response_dict:
-                                    value = response_dict[key]
-                                    if isinstance(value, str):
-                                        return value
-                                    else:
-                                        return str(value)
-                    except Exception:
-                        pass
-                    
-                    # 尝试一些常见的属性名
-                    for attr_name in ['data', 'result', 'output', 'response']:
-                        if hasattr(response, attr_name):
-                            attr_value = getattr(response, attr_name)
-                            if isinstance(attr_value, str):
-                                return attr_value
-                            else:
-                                return str(attr_value)
-                    
-                    # 如果所有尝试都失败，返回字符串表示
-                    return str(response)
+            return full_content
             
         except Exception as e:
             logger.error(f"模型调用失败: {e}")
+            # 如果已有部分内容，返回部分内容而不是报错
+            if full_content:
+                return full_content
             raise
+
+    def _extract_content(self, response: Any) -> str:
+        """从响应中提取文本内容"""
+        if isinstance(response, str):
+            return response
+        
+        # 处理 AgentScope ModelResponse 对象
+        if hasattr(response, 'text') and response.text:
+             return str(response.text)
+             
+        if hasattr(response, 'content'):
+            if isinstance(response.content, str):
+                return response.content
+            elif isinstance(response.content, list):
+                # 处理 [{"type": "text", "text": "..."}] 格式
+                text = ""
+                for item in response.content:
+                    if isinstance(item, dict) and item.get('type') == 'text':
+                        text += item.get('text', '')
+                return text
+                
+        # 尝试其他属性
+        for attr in ['message', 'data', 'result']:
+            if hasattr(response, attr):
+                val = getattr(response, attr)
+                if isinstance(val, str):
+                    return val
+                if hasattr(val, 'content'):
+                    return str(val.content)
+                    
+        return str(response)
+
+    def _is_complete(self, content: str) -> bool:
+        """检查内容是否完整"""
+        if not content:
+            return False
+        # 检查是否以常见的结束符结尾
+        return content.strip().endswith(("。", ".", "!", "}", "]", ">", "```", "---", "**版本**: v1.0", "文档结束"))

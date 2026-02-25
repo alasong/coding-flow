@@ -50,8 +50,15 @@ class ArchitectureAnalyzerAgent(AgentBase):
     def _extract_json(self, content: str, expected_type=dict):
         """提取并解析JSON"""
         try:
-            # 1. 尝试提取代码块
+            # 0. 预处理：修复常见的JSON格式错误
+            # 移除注释 // ... 或 /* ... */
             import re
+            content = re.sub(r'(?m)^\s*//.*', '', content)
+            content = re.sub(r'/\*.*?\*/', '', content, flags=re.DOTALL)
+            # 修复末尾多余的逗号 (简单处理)
+            content = re.sub(r',(\s*[}\]])', r'\1', content)
+
+            # 1. 尝试提取代码块
             code_block_match = re.search(r'```json\s*([\s\S]*?)\s*```', content)
             if code_block_match:
                 json_str = code_block_match.group(1)
@@ -80,7 +87,16 @@ class ArchitectureAnalyzerAgent(AgentBase):
             
         except json.JSONDecodeError as e:
             logger.error(f"JSON解析失败: {e}")
-            logger.debug(f"原始内容: {content}")
+            logger.debug(f"原始内容: {content[:500]}...") # 只打印前500字符避免日志爆炸
+            
+            # 4. 终极尝试：使用 dirtyjson 或简单的修复逻辑（如果引入依赖的话）
+            # 这里尝试一个简单的修复：如果是列表，尝试补全 ]
+            if expected_type == list and content.strip().startswith('['):
+                 try:
+                     return json.loads(content + ']')
+                 except:
+                     pass
+            
             return None
         except Exception as e:
             logger.error(f"JSON提取未知错误: {e}")
@@ -292,7 +308,7 @@ class ArchitectureAnalyzerAgent(AgentBase):
         
         【设计要求】
         1. 每个组件必须对应一个或多个核心实体。
-        2. **绝对禁止**创建与核心实体无关的组件。
+        2. **绝对禁止**创建与核心实体无关的组件（如电商、支付、订单等，除非核心实体中包含它们）。
         3. 必须包含一个 API Gateway（如果适用）。
         4. 【关键机制设计】：为每个组件设计 1-3 个具体的架构机制（Architectural Mechanisms），以提升系统的鲁棒性、性能或可维护性。
            - 例如：高频读取组件可能需要 "Read-Through Caching"。
@@ -431,7 +447,7 @@ class ArchitectureAnalyzerAgent(AgentBase):
         
         【重要原则】
         1. 数据表设计必须严格对应功能需求和系统组件。
-        2. **严禁**生成与上述组件无关的表！
+        2. **严禁**生成与上述组件无关的表（如订单、支付、库存表等，除非需求中明确提及或组件列表中包含Order/Payment/Inventory）！
         3. 如果需求很简单，数据库设计也应保持简单。
         4. 表名和字段名请使用英文。
         
@@ -617,7 +633,7 @@ class ArchitectureAnalyzerAgent(AgentBase):
         {component_context}
         
         【重要原则】
-        1. API设计必须严格对应系统组件，禁止生成无关接口。
+        1. API设计必须严格对应系统组件，禁止生成无关接口（如订单、支付、电商接口，除非组件列表中确实包含OrderService或PaymentService）。
         2. 根据系统架构风格（如 RESTful, GraphQL, gRPC）设计接口。
         3. 确保接口命名规范、一致。
         
