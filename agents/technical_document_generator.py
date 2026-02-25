@@ -33,7 +33,7 @@ class TechnicalDocumentGeneratorAgent:
                     model = DashScopeChatModel(
                         model_name="qwen-turbo",
                         api_key=DASHSCOPE_API_KEY,
-                        generate_kwargs={"temperature": 0.3, "max_tokens": 2000}
+                        generate_kwargs={"temperature": 0.3, "max_tokens": 4000}
                     )
                     logger.info(f"[{self.name}] 成功初始化DashScope模型: qwen-turbo")
                     return model
@@ -42,7 +42,7 @@ class TechnicalDocumentGeneratorAgent:
                     model = OpenAIChatModel(
                         model_name=DEFAULT_MODEL,
                         api_key=OPENAI_API_KEY,
-                        generate_kwargs={"temperature": 0.3, "max_tokens": 2000}
+                        generate_kwargs={"temperature": 0.3, "max_tokens": 4000}
                     )
                     logger.info(f"[{self.name}] 成功初始化OpenAI模型: {DEFAULT_MODEL}")
                     return model
@@ -275,299 +275,6 @@ class TechnicalDocumentGeneratorAgent:
                                    architecture_design: Dict[str, Any], 
                                    validation_result: Dict[str, Any]) -> str:
         """生成部署文档内容"""
-        
-        prompt = f"""
-{self.system_prompt}
-
-请基于以下信息生成一份部署指南文档：
-
-## 需求规格
-{json.dumps(requirements, ensure_ascii=False, indent=2)}
-
-## 架构设计
-{json.dumps(architecture_design, ensure_ascii=False, indent=2)}
-
-## 验证结果
-{json.dumps(validation_result, ensure_ascii=False, indent=2)}
-
-## 文档要求
-生成详细的部署指南，包含：
-
-1. **部署概述**
-   - 部署目标和范围
-   - 部署策略和原则
-   - 环境规划
-
-2. **基础设施准备**
-   - 服务器规格要求
-   - 网络配置要求
-   - 存储需求
-   - 安全组配置
-
-3. **环境搭建**
-   - 开发环境搭建
-   - 测试环境搭建
-   - 预生产环境搭建
-   - 生产环境搭建
-
-4. **应用部署**
-   - 应用打包流程
-   - 容器化部署步骤
-   - 服务编排配置
-   - 负载均衡配置
-
-5. **数据库部署**
-   - 数据库安装配置
-   - 数据迁移方案
-   - 备份策略配置
-   - 性能调优
-
-6. **监控和日志**
-   - 监控系统部署
-   - 日志收集配置
-   - 告警规则设置
-   - 仪表板配置
-
-7. **安全配置**
-   - SSL证书配置
-   - 防火墙配置
-   - 访问控制设置
-   - 安全扫描
-
-8. **运维流程**
-   - 日常维护任务
-   - 故障处理流程
-   - 变更管理流程
-   - 应急响应预案
-
-9. **部署检查清单**
-   - 部署前检查项
-   - 部署中检查项
-   - 部署后验证项
-   - 回滚检查项
-
-请提供具体的命令行操作步骤和配置示例。
-"""
-
-        try:
-            response = await self._call_model_with_streaming(prompt)
-            return self._format_deployment_guide(response)
-        except Exception as e:
-            logger.error(f"部署文档生成失败: {e}")
-            return self._generate_fallback_deployment_content(requirements, architecture_design, validation_result)
-    
-    def _generate_fallback_deployment_content(self, requirements: Dict[str, Any], 
-                                        architecture_design: Dict[str, Any], 
-                                        validation_result: Dict[str, Any]) -> str:
-        """生成部署文档的备用内容"""
-        # 提取架构信息
-        tech_stack = architecture_design.get("technology_stack", {})
-        deployment_info = architecture_design.get("deployment_architecture", {})
-        
-        # 提取验证结果中的部署建议
-        validation_data = validation_result.get("validation_result", {})
-        deployment_suggestions = validation_data.get("suggestions", [])
-        
-        # 过滤部署相关的建议
-        deployment_tips = []
-        for suggestion in deployment_suggestions:
-            if any(keyword in suggestion.lower() for keyword in ['部署', '运维', '监控', '安全']):
-                deployment_tips.append(suggestion)
-        
-        return f"""# 系统部署指南
-
-## 1. 部署概述
-
-### 1.1 Deployment Objectives
-This document provides a complete system deployment process to ensure the system can run stably, securely and efficiently in the target environment.
-
-### 1.2 Deployment Scope
-- Infrastructure environment setup
-- Application containerized deployment
-- Database and middleware configuration
-- Monitoring and alerting system integration
-- Security protection measures configuration
-
-### 1.3 Deployment Principles
-- **Automation**: Adopt Infrastructure as Code (IaC) concept
-- **Repeatability**: Ensure deployment process can be repeated
-- **Monitorability**: Complete monitoring and log collection
-- **Rollback**: Support for quick rollback to stable versions
-
-## 2. System Environment Requirements
-
-### 2.1 Hardware Requirements
-| Environment Type | CPU | Memory | Storage | Network |
-|-----------------|-----|--------|---------|---------|
-| Development | 2 cores | 4GB | 50GB | 1Gbps |
-| Testing | 4 cores | 8GB | 100GB | 1Gbps |
-| Staging | 8 cores | 16GB | 200GB | 1Gbps |
-| **Production** | 16+ cores | 32+ GB | 500+ GB | 10Gbps |
-
-### 2.2 Software Requirements
-#### 2.2.1 Operating System
-- **Recommended**: Ubuntu Server 22.04 LTS / CentOS 8+
-- **Kernel Version**: Linux 5.4+
-- **File System**: ext4 / XFS
-
-#### 2.2.2 Container Runtime
-- **Docker**: 24.0.0+
-- **containerd**: 1.7.0+
-- **Podman**: 4.0+ (optional)
-
-#### 2.2.3 Container Orchestration
-- **Kubernetes**: 1.28+
-- **kubectl**: 1.28+
-- **Helm**: 3.12+
-
-#### 2.2.4 Monitoring Tools
-- **Prometheus**: 2.45+
-- **Grafana**: 10.0+
-- **Alertmanager**: 0.25+
-
-### 2.3 Network Requirements
-- **Internal Communication**: All nodes must be able to communicate
-- **External Access**: Necessary public network access permissions
-- **Domain Resolution**: DNS configuration required
-- **Load Balancing**: Support for Layer 4/7 load balancing
-
-## 3. Basic Environment Preparation
-
-### 3.1 System Initialization
-```bash
-#!/bin/bash
-# System initialization script
-
-# 1. Update system packages
-sudo apt update && sudo apt upgrade -y
-
-# 2. Install basic tools
-sudo apt install -y curl wget git vim htop net-tools unzip
-
-# 3. Configure timezone
-sudo timedatectl set-timezone Asia/Shanghai
-
-# 4. Configure hostname
-sudo hostnamectl set-hostname k8s-master
-
-# 5. Configure hosts file
-cat >> /etc/hosts << EOF
-192.168.1.10 k8s-master
-192.168.1.11 k8s-node1
-192.168.1.12 k8s-node2
-EOF
-
-# 6. Disable swap
-sudo swapoff -a
-sudo sed -i '/ swap / s/^/#/' /etc/fstab
-
-# 7. Configure kernel parameters
-cat > /etc/sysctl.d/k8s.conf << EOF
-net.bridge.bridge-nf-call-ip6tables = 1
-net.bridge.bridge-nf-call-iptables = 1
-net.ipv4.ip_forward = 1
-EOF
-sudo sysctl --system
-```
-
-### 3.2 Docker Installation and Configuration
-```bash
-#!/bin/bash
-# Docker installation script
-
-# 1. Remove old versions
-sudo apt remove docker docker-engine docker.io containerd runc
-
-# 2. Install dependency packages
-sudo apt install -y apt-transport-https ca-certificates curl gnupg lsb-release
-
-# 3. Add Docker GPG key
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
-
-# 4. Set up stable repository
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-
-# 5. Install Docker Engine
-sudo apt update
-sudo apt install -y docker-ce docker-ce-cli containerd.io
-
-# 6. Configure Docker
-cat > /etc/docker/daemon.json << EOF
-{{
-  "exec-opts": ["native.cgroupdriver=systemd"],
-  "log-driver": "json-file",
-  "log-opts": {{
-    "max-size": "100m",
-    "max-file": "3"
-  }},
-  "storage-driver": "overlay2",
-  "registry-mirrors": ["https://registry.docker-cn.com"]
-}}
-EOF
-
-# 7. Start Docker
-sudo systemctl daemon-reload
-sudo systemctl restart docker
-sudo systemctl enable docker
-
-# 8. Add user to docker group
-sudo usermod -aG docker $USER
-```
-
-### 3.3 Kubernetes Cluster Initialization
-```bash
-#!/bin/bash
-# Kubernetes installation script
-
-# 1. Add Kubernetes source
-curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
-cat > /etc/apt/sources.list.d/kubernetes.list << EOF
-deb https://apt.kubernetes.io/ kubernetes-xenial main
-EOF
-
-# 2. Install kubelet, kubeadm, kubectl
-sudo apt update
-sudo apt install -y kubelet=1.28.0-00 kubeadm=1.28.0-00 kubectl=1.28.0-00
-sudo apt-mark hold kubelet kubeadm kubectl
-
-# 3. Initialize Master node
-sudo kubeadm init --pod-network-cidr=10.244.0.0/16 --service-cidr=10.96.0.0/12
-
-# 4. Configure kubectl
-mkdir -p $HOME/.kube
-sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
-sudo chown $(id -u):$(id -g) $HOME/.kube/config
-
-# 5. Install network plugin (Flannel)
-kubectl apply -f https://raw.githubusercontent.com/flannel-io/flannel/master/Documentation/kube-flannel.yml
-
-# 6. Verify cluster status
-kubectl get nodes
-kubectl get pods --all-namespaces
-```
-
-## 4. Application Deployment
-
-### 4.1 Namespace Creation
-```bash
-#!/bin/bash
-# Create namespaces
-kubectl create namespace production
-kubectl create namespace monitoring
-kubectl create namespace logging
-```
-
-**Deployment Suggestions**: {deployment_tips[0] if deployment_tips else 'It is recommended to conduct complete validation in the test environment before production deployment'}
-
-**Update Time**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-
-**Version**: v1.0
-"""
-
-    async def _generate_deployment_content(self, requirements: Dict[str, Any], 
-                                   architecture_design: Dict[str, Any], 
-                                   validation_result: Dict[str, Any]) -> str:
-        """生成部署文档内容"""
         try:
             project_name = requirements.get("project_name", "MyProject")
             tech_stack = architecture_design.get("technology_stack", {})
@@ -638,824 +345,389 @@ kubectl create namespace logging
                 logger.error(f"流式响应处理失败: {e}")
                 return self._generate_fallback_deployment_content(requirements, architecture_design, validation_result)
             
-            return response_content.strip()
+            return self._format_deployment_guide(response_content.strip())
             
         except Exception as e:
             logger.error(f"部署文档生成失败: {e}")
             return self._generate_fallback_deployment_content(requirements, architecture_design, validation_result)
 
+    def _infer_tech_stack_from_requirements(self, requirements: Dict[str, Any]) -> Dict[str, str]:
+        """根据需求推断可能的技术栈（用于Fallback）"""
+        req_text = json.dumps(requirements, ensure_ascii=False).lower()
+        
+        stack = {
+            "frontend": "Modern Web Framework (e.g., React/Vue)",
+            "backend": "High Performance Backend (e.g., Python/Go/Java)",
+            "database": "Relational Database (e.g., PostgreSQL/MySQL)",
+            "cache": "Distributed Cache (e.g., Redis)",
+            "message_queue": "Message Queue (e.g., RabbitMQ/Kafka)",
+            "deployment": "Container Orchestration (e.g., Kubernetes)",
+            "container": "Docker"
+        }
+        
+        # 简单的启发式规则
+        if "mobile" in req_text or "app" in req_text or "android" in req_text or "ios" in req_text:
+            stack["frontend"] = "Flutter / React Native"
+        elif "dashboard" in req_text or "admin" in req_text or "management" in req_text:
+            stack["frontend"] = "React (Ant Design) / Vue (Element Plus)"
+            
+        if "data analysis" in req_text or "ai" in req_text or "machine learning" in req_text:
+            stack["backend"] = "Python (FastAPI/Django)"
+            stack["database"] = "PostgreSQL + Vector DB"
+        elif "enterprise" in req_text or "finance" in req_text:
+            stack["backend"] = "Java (Spring Boot)"
+        elif "high concurrency" in req_text or "real-time" in req_text:
+            stack["backend"] = "Go (Gin/Echo)"
+            
+        return stack
+
+    def _generate_fallback_architecture_content(self, requirements: Dict[str, Any], 
+                                              architecture_design: Dict[str, Any]) -> str:
+        """生成架构设计文档的备用内容"""
+        try:
+            logger.info("生成架构设计文档备用内容")
+            
+            # 提取或推断架构信息
+            components = architecture_design.get("components", [])
+            provided_stack = architecture_design.get("technology_stack", {})
+            inferred_stack = self._infer_tech_stack_from_requirements(requirements)
+            
+            # 合并技术栈，优先使用提供的
+            tech_stack = {**inferred_stack, **provided_stack}
+            
+            project_name = requirements.get("project_name", "Project")
+            
+            doc_content = f"""# 系统架构设计说明书
+
+## 1. 执行摘要
+
+### 项目背景
+基于用户需求分析，为 {project_name} 设计一套现代化的软件系统架构。
+
+### 架构概述
+系统采用分层架构设计，包含前端展示层、业务逻辑层、数据访问层和基础设施层。
+
+### 关键技术决策
+- 前端框架: {tech_stack.get('frontend')}
+- 后端框架: {tech_stack.get('backend')}
+- 数据库: {tech_stack.get('database')}
+- 部署平台: {tech_stack.get('deployment')}
+
+## 2. 架构概览
+
+### 系统架构图
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Presentation  │    │   Application   │    │      Data       │
+│      Layer      │────│      Layer      │────│      Layer      │
+│                 │    │                 │    │                 │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+```
+
+### 核心组件
+"""
+            
+            # 添加组件信息
+            if components:
+                for component in components:
+                    doc_content += f"""
+#### {component.get('name', 'Component')}
+- 类型: {component.get('type', 'Module')}
+- 技术栈: {component.get('technology', 'TBD')}
+- 职责: {component.get('description', 'Responsible for specific business logic')}
+"""
+            else:
+                doc_content += "\\n根据需求分析，系统将包含核心业务处理模块、用户管理模块及数据存储模块。\\n"
+            
+            doc_content += f"""
+
+## 3. 技术架构
+
+### 前端架构
+- 框架选择: {tech_stack.get('frontend')}
+- 交互设计: 响应式设计，支持多端适配
+
+### 后端架构  
+- 框架选择: {tech_stack.get('backend')}
+- API设计: RESTful / GraphQL
+- 认证授权: 基于Token的认证机制 (JWT/OAuth2)
+- 消息队列: {tech_stack.get('message_queue')}
+
+### 数据库架构
+- 主数据库: {tech_stack.get('database')}
+- 缓存策略: {tech_stack.get('cache')} 为热点数据提供加速
+
+## 4. 部署架构
+
+### 基础设施
+- 容器平台: {tech_stack.get('container')}
+- 编排系统: {tech_stack.get('deployment')}
+
+## 5. 安全架构
+
+### 安全原则
+- 最小权限原则
+- 数据加密存储与传输
+- 输入验证与防注入
+
+## 6. 实施计划
+
+建议采用敏捷开发模式，分阶段迭代交付。
+1. 核心原型验证
+2. 基础功能开发
+3. 系统集成与测试
+4. 部署上线
+
+---
+
+**创建日期**: {datetime.now().strftime('%Y-%m-%d')}
+**版本**: v1.0
+**作者**: AI架构设计助手
+"""
+            
+            return doc_content
+            
+        except Exception as e:
+            logger.error(f"架构设计备用内容生成失败: {e}")
+            return f"# 架构设计文档\\n\\n由于生成过程中出现错误，这里提供简化的架构设计文档。\\n\\n**错误信息**: {str(e)}\\n\\n**创建时间**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+
+    def _generate_fallback_tech_content(self, requirements: Dict[str, Any], 
+                                     architecture_design: Dict[str, Any]) -> str:
+        """生成技术选型文档的备用内容"""
+        try:
+            logger.info("生成技术选型备用内容")
+            
+            provided_stack = architecture_design.get("technology_stack", {})
+            inferred_stack = self._infer_tech_stack_from_requirements(requirements)
+            tech_stack = {**inferred_stack, **provided_stack}
+            
+            return f"""# 技术选型说明书
+
+## 1. 技术选型概述
+
+### 选型原则
+- 成熟稳定: 选择经过验证的成熟技术
+- 社区活跃: 拥有活跃的开发者社区
+- 学习成本: 团队技术栈匹配度高
+- 性能要求: 满足系统性能需求
+
+## 2. 前端技术栈
+
+### 框架选择: {tech_stack.get('frontend')}
+**选择理由:**
+- 符合当前主流开发模式
+- 生态系统完善，组件库丰富
+- 开发效率高
+
+## 3. 后端技术栈
+
+### 框架选择: {tech_stack.get('backend')}
+**选择理由:**
+- 性能优异，扩展性强
+- 适合业务场景需求
+- 社区支持良好
+
+### 数据库: {tech_stack.get('database')}
+**选择理由:**
+- 数据一致性保证
+- 支持复杂查询
+- 可靠性高
+
+### 消息队列: {tech_stack.get('message_queue')}
+**选择理由:**
+- 解耦系统组件
+- 削峰填谷
+- 异步处理
+
+## 4. 基础设施
+
+### 容器化与编排: {tech_stack.get('container')} / {tech_stack.get('deployment')}
+**选择理由:**
+- 标准化交付
+- 自动化运维
+- 弹性伸缩
+
+## 5. 风险评估
+
+### 技术风险
+- 新技术引入的学习曲线
+- 第三方组件的依赖风险
+
+### 缓解措施
+- 开展技术预研和POC验证
+- 建立完善的监控告警体系
+
+---
+
+**创建日期**: {datetime.now().strftime('%Y-%m-%d')}
+**版本**: v1.0
+**作者**: AI架构设计助手
+"""
+            
+        except Exception as e:
+            logger.error(f"技术选型备用内容生成失败: {e}")
+            return f"# 技术选型说明书\\n\\n由于生成过程中出现错误，这里提供简化的技术选型文档。\\n\\n**错误信息**: {str(e)}\\n\\n**创建时间**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+
     def _generate_fallback_deployment_content(self, requirements: Dict[str, Any], 
                                         architecture_design: Dict[str, Any], 
                                         validation_result: Dict[str, Any]) -> str:
         """生成部署文档的备用内容"""
-        # 提取架构信息
-        tech_stack = architecture_design.get("technology_stack", {})
-        deployment_info = architecture_design.get("deployment_architecture", {})
-        
-        # 提取验证结果中的部署建议
-        validation_data = validation_result.get("validation_result", {})
-        deployment_suggestions = validation_data.get("suggestions", [])
-        
-        # 过滤部署相关的建议
-        deployment_tips = []
-        for suggestion in deployment_suggestions:
-            if any(keyword in suggestion.lower() for keyword in ['deploy', 'operation', 'monitor', 'security']):
-                deployment_tips.append(suggestion)
-        
-        return f"""# System Deployment Guide
+        try:
+            logger.info("生成部署文档备用内容")
+            
+            provided_stack = architecture_design.get("technology_stack", {})
+            inferred_stack = self._infer_tech_stack_from_requirements(requirements)
+            tech_stack = {**inferred_stack, **provided_stack}
+            
+            validation_data = validation_result.get("validation_result", {})
+            deployment_suggestions = validation_data.get("suggestions", [])
+            
+            deployment_tips = [s for s in deployment_suggestions if any(k in s.lower() for k in ['deploy', 'operation', 'monitor', 'security'])]
+            tips_content = "\\n".join([f"- {tip}" for tip in deployment_tips]) if deployment_tips else "- 建议在生产环境部署前，先在测试环境进行完整验证"
 
-## 1. Deployment Overview
+            return f"""# 系统部署指南
 
-### 1.1 Deployment Objectives
-This document provides a complete system deployment process to ensure the system can run stably, securely and efficiently in the target environment.
+## 1. 部署概述
 
-### 1.2 Deployment Scope
-- Infrastructure environment setup
-- Application containerized deployment
-- Database and middleware configuration
-- Monitoring and alerting system integration
-- Security protection measures configuration
+### 部署目标
+确保系统能够安全、稳定地部署到 {tech_stack.get('deployment')} 环境中。
 
-### 1.3 Deployment Principles
-- **Automation**: Adopt Infrastructure as Code (IaC) concept
-- **Repeatability**: Ensure deployment process can be repeated
-- **Monitorability**: Complete monitoring and log collection
-- **Rollback**: Support for quick rollback to stable versions
+### 技术栈
+- 容器化: {tech_stack.get('container')}
+- 编排: {tech_stack.get('deployment')}
+- 数据库: {tech_stack.get('database')}
 
-## 2. System Environment Requirements
+## 2. 环境准备
 
-### 2.1 Hardware Requirements
-| Environment Type | CPU | Memory | Storage | Network |
-|-----------------|-----|--------|---------|---------|
-| Development | 2 cores | 4GB | 50GB | 1Gbps |
-| Testing | 4 cores | 8GB | 100GB | 1Gbps |
-| Staging | 8 cores | 16GB | 200GB | 1Gbps |
-| **Production** | 16+ cores | 32+ GB | 500+ GB | 10Gbps |
+### 硬件要求
+根据系统规模预估：
+- 开发环境: 最小配置 (e.g., 2CPU/4GB)
+- 生产环境: 根据压测结果动态调整 (e.g., 4CPU/8GB 起步)
 
-### 2.2 Software Requirements
-#### 2.2.1 Operating System
-- **Recommended**: Ubuntu Server 22.04 LTS / CentOS 8+
-- **Kernel Version**: Linux 5.4+
-- **File System**: ext4 / XFS
+### 软件要求
+- 操作系统: Linux (Ubuntu/CentOS)
+- 运行时: {tech_stack.get('container')} Runtime
+- 数据库: {tech_stack.get('database')} Client
 
-#### 2.2.2 Container Runtime
-- **Docker**: 24.0.0+
-- **containerd**: 1.7.0+
-- **Podman**: 4.0+ (optional)
+## 3. 部署流程
 
-#### 2.2.3 Container Orchestration
-- **Kubernetes**: 1.28+
-- **kubectl**: 1.28+
-- **Helm**: 3.12+
+### 3.1 基础设施搭建
+1. 准备服务器资源或云资源
+2. 安装 {tech_stack.get('container')} 和 {tech_stack.get('deployment')} 环境
+3. 配置网络和安全组
 
-#### 2.2.4 Monitoring Tools
-- **Prometheus**: 2.45+
-- **Grafana**: 10.0+
-- **Alertmanager**: 0.25+
+### 3.2 中间件部署
+1. 部署 {tech_stack.get('database')} (建议使用高可用模式)
+2. 部署 {tech_stack.get('message_queue')}
+3. 部署 {tech_stack.get('cache')}
 
-### 2.3 Network Requirements
-- **Internal Communication**: All nodes must be able to communicate
-- **External Access**: Necessary public network access permissions
-- **Domain Resolution**: DNS configuration required
-- **Load Balancing**: Support for Layer 4/7 load balancing
+### 3.3 应用部署
+1. 构建应用镜像
+2. 推送至镜像仓库
+3. 更新 {tech_stack.get('deployment')} 配置文件
+4. 执行滚动更新
 
-## 3. Basic Environment Preparation
+## 4. 监控与运维
 
-### 3.1 System Initialization
-```bash
-#!/bin/bash
-# System initialization script
+### 监控策略
+- 部署监控代理 (Agent)
+- 配置关键指标告警 (CPU, Memory, Disk, Network)
+- 配置应用健康检查
 
-# 1. Update system packages
-sudo apt update && sudo apt upgrade -y
+### 备份策略
+- 数据库每日全量备份
+- 关键配置定期备份
 
-# 2. Install basic tools
-sudo apt install -y curl wget git vim htop net-tools unzip
+## 5. 部署建议与注意事项
 
-# 3. Configure timezone
-sudo timedatectl set-timezone Asia/Shanghai
-
-# 4. Configure hostname
-sudo hostnamectl set-hostname k8s-master
-
-# 5. Configure hosts file
-cat >> /etc/hosts << EOF
-192.168.1.10 k8s-master
-192.168.1.11 k8s-node1
-192.168.1.12 k8s-node2
-EOF
-
-# 6. Disable swap
-sudo swapoff -a
-sudo sed -i '/ swap / s/^/#/' /etc/fstab
-
-# 7. Configure kernel parameters
-cat > /etc/sysctl.d/k8s.conf << EOF
-net.bridge.bridge-nf-call-ip6tables = 1
-net.bridge.bridge-nf-call-iptables = 1
-net.ipv4.ip_forward = 1
-EOF
-sudo sysctl --system
-```
-
-### 3.2 Docker Installation and Configuration
-```bash
-#!/bin/bash
-# Docker installation script
-
-# 1. Remove old versions
-sudo apt remove docker docker-engine docker.io containerd runc
-
-# 2. Install dependency packages
-sudo apt install -y apt-transport-https ca-certificates curl gnupg lsb-release
-
-# 3. Add Docker GPG key
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
-
-# 4. Set up stable repository
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-
-# 5. Install Docker Engine
-sudo apt update
-sudo apt install -y docker-ce docker-ce-cli containerd.io
-
-# 6. Configure Docker
-cat > /etc/docker/daemon.json << EOF
-{{
-  "exec-opts": ["native.cgroupdriver=systemd"],
-  "log-driver": "json-file",
-  "log-opts": {{
-    "max-size": "100m",
-    "max-file": "3"
-  }},
-  "storage-driver": "overlay2",
-  "registry-mirrors": ["https://registry.docker-cn.com"]
-}}
-EOF
-
-# 7. Start Docker
-sudo systemctl daemon-reload
-sudo systemctl restart docker
-sudo systemctl enable docker
-
-# 8. Add user to docker group
-sudo usermod -aG docker $USER
-```
-
-### 3.3 Kubernetes Cluster Initialization
-```bash
-#!/bin/bash
-# Kubernetes installation script
-
-# 1. Add Kubernetes source
-curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
-cat > /etc/apt/sources.list.d/kubernetes.list << EOF
-deb https://apt.kubernetes.io/ kubernetes-xenial main
-EOF
-
-# 2. Install kubelet, kubeadm, kubectl
-sudo apt update
-sudo apt install -y kubelet=1.28.0-00 kubeadm=1.28.0-00 kubectl=1.28.0-00
-sudo apt-mark hold kubelet kubeadm kubectl
-
-# 3. Initialize Master node
-sudo kubeadm init --pod-network-cidr=10.244.0.0/16 --service-cidr=10.96.0.0/12
-
-# 4. Configure kubectl
-mkdir -p $HOME/.kube
-sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
-sudo chown $(id -u):$(id -g) $HOME/.kube/config
-
-# 5. Install network plugin (Flannel)
-kubectl apply -f https://raw.githubusercontent.com/flannel-io/flannel/master/Documentation/kube-flannel.yml
-
-# 6. Verify cluster status
-kubectl get nodes
-kubectl get pods --all-namespaces
-```
-
-## 4. Application Deployment
-
-### 4.1 Namespace Creation
-```bash
-#!/bin/bash
-# Create namespaces
-kubectl create namespace production
-kubectl create namespace monitoring
-kubectl create namespace logging
-```
-```yaml
-# configmap.yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: app-config
-  namespace: production
-data:
-  # 应用配置
-  APP_ENV: "production"
-  APP_DEBUG: "false"
-  APP_URL: "https://api.example.com"
-  
-  # 数据库配置
-  DB_HOST: "postgres-service"
-  DB_PORT: "5432"
-  DB_NAME: "app_production"
-  
-  # Redis配置
-  REDIS_HOST: "redis-service"
-  REDIS_PORT: "6379"
-  
-  # 日志配置
-  LOG_LEVEL: "info"
-  LOG_FORMAT: "json"
-```
-
-### 4.3 密钥管理
-```yaml
-# secrets.yaml
-apiVersion: v1
-kind: Secret
-metadata:
-  name: app-secrets
-  namespace: production
-type: Opaque
-data:
-  # Base64编码的敏感信息
-  DB_PASSWORD: cGFzc3dvcmQxMjM=  # password123
-  JWT_SECRET: c3VwZXJzZWNyZXRqd3RrZXk=  # supersecretjwtkey
-  API_KEY: bXlzZWNyZXRhcGlrZXk=  # mysecretapikey
-```
-
-### 4.4 应用部署配置
-```yaml
-# deployment.yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: app-backend
-  namespace: production
-  labels:
-    app: backend
-    tier: backend
-    version: v1.0.0
-spec:
-  replicas: 3
-  strategy:
-    type: RollingUpdate
-    rollingUpdate:
-      maxSurge: 1
-      maxUnavailable: 0
-  selector:
-    matchLabels:
-      app: backend
-  template:
-    metadata:
-      labels:
-        app: backend
-        version: v1.0.0
-    spec:
-      containers:
-      - name: backend
-        image: registry.example.com/app/backend:v1.0.0
-        ports:
-        - containerPort: 8080
-          name: http
-        env:
-        - name: APP_ENV
-          valueFrom:
-            configMapKeyRef:
-              name: app-config
-              key: APP_ENV
-        - name: DB_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: app-secrets
-              key: DB_PASSWORD
-        resources:
-          requests:
-            memory: "256Mi"
-            cpu: "250m"
-          limits:
-            memory: "512Mi"
-            cpu: "500m"
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: 8080
-          initialDelaySeconds: 30
-          periodSeconds: 10
-          timeoutSeconds: 5
-          failureThreshold: 3
-        readinessProbe:
-          httpGet:
-            path: /ready
-            port: 8080
-          initialDelaySeconds: 5
-          periodSeconds: 5
-          timeoutSeconds: 3
-          failureThreshold: 3
-        volumeMounts:
-        - name: app-logs
-          mountPath: /app/logs
-      volumes:
-      - name: app-logs
-        emptyDir: {{}}
-      imagePullSecrets:
-      - name: registry-secret
-```
-
-### 4.5 服务暴露
-```yaml
-# service.yaml
-apiVersion: v1
-kind: Service
-metadata:
-  name: backend-service
-  namespace: production
-  labels:
-    app: backend
-spec:
-  type: ClusterIP
-  ports:
-  - port: 80
-    targetPort: 8080
-    protocol: TCP
-    name: http
-  selector:
-    app: backend
+{tips_content}
 
 ---
-# ingress.yaml
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: app-ingress
-  namespace: production
-  annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /
-    nginx.ingress.kubernetes.io/ssl-redirect: "true"
-    cert-manager.io/cluster-issuer: "letsencrypt-prod"
-spec:
-  ingressClassName: nginx
-  tls:
-  - hosts:
-    - api.example.com
-    secretName: app-tls-secret
-  rules:
-  - host: api.example.com
-    http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: backend-service
-            port:
-              number: 80
-```
 
-## 5. 数据库部署
-
-### 5.1 PostgreSQL部署
-```yaml
-# postgres-deployment.yaml
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: postgres
-  namespace: production
-spec:
-  serviceName: postgres
-  replicas: 1
-  selector:
-    matchLabels:
-      app: postgres
-  template:
-    metadata:
-      labels:
-        app: postgres
-    spec:
-      containers:
-      - name: postgres
-        image: postgres:15-alpine
-        ports:
-        - containerPort: 5432
-        env:
-        - name: POSTGRES_DB
-          value: app_production
-        - name: POSTGRES_USER
-          value: appuser
-        - name: POSTGRES_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: postgres-secret
-              key: password
-        volumeMounts:
-        - name: postgres-storage
-          mountPath: /var/lib/postgresql/data
-  volumeClaimTemplates:
-  - metadata:
-      name: postgres-storage
-    spec:
-      accessModes: ["ReadWriteOnce"]
-      resources:
-        requests:
-          storage: 100Gi
-      storageClassName: fast-ssd
-```
-
-### 5.2 Redis部署
-```yaml
-# redis-deployment.yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: redis
-  namespace: production
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: redis
-  template:
-    metadata:
-      labels:
-        app: redis
-    spec:
-      containers:
-      - name: redis
-        image: redis:7-alpine
-        ports:
-        - containerPort: 6379
-        command:
-        - redis-server
-        - --maxmemory
-        - 2gb
-        - --maxmemory-policy
-        - allkeys-lru
-        - --save
-        - "900 1"
-        - --save
-        - "300 10"
-        - --save
-        - "60 10000"
-        resources:
-          requests:
-            memory: "2Gi"
-            cpu: "500m"
-          limits:
-            memory: "4Gi"
-            cpu: "1000m"
-        volumeMounts:
-        - name: redis-data
-          mountPath: /data
-      volumes:
-      - name: redis-data
-        persistentVolumeClaim:
-          claimName: redis-pvc
-```
-
-## 6. 监控和日志系统
-
-### 6.1 Prometheus部署
-```yaml
-# prometheus-deployment.yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: prometheus
-  namespace: monitoring
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: prometheus
-  template:
-    metadata:
-      labels:
-        app: prometheus
-    spec:
-      containers:
-      - name: prometheus
-        image: prom/prometheus:v2.45.0
-        ports:
-        - containerPort: 9090
-        args:
-        - '--config.file=/etc/prometheus/prometheus.yml'
-        - '--storage.tsdb.path=/prometheus/'
-        - '--storage.tsdb.retention.time=30d'
-        - '--web.enable-lifecycle'
-        volumeMounts:
-        - name: prometheus-config
-          mountPath: /etc/prometheus
-        - name: prometheus-storage
-          mountPath: /prometheus
-      volumes:
-      - name: prometheus-config
-        configMap:
-          name: prometheus-config
-      - name: prometheus-storage
-        persistentVolumeClaim:
-          claimName: prometheus-pvc
-```
-
-### 6.2 Grafana部署
-```yaml
-# grafana-deployment.yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: grafana
-  namespace: monitoring
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: grafana
-  template:
-    metadata:
-      labels:
-        app: grafana
-    spec:
-      containers:
-      - name: grafana
-        image: grafana/grafana:10.0.0
-        ports:
-        - containerPort: 3000
-        env:
-        - name: GF_SECURITY_ADMIN_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: grafana-secret
-              key: admin-password
-        volumeMounts:
-        - name: grafana-storage
-          mountPath: /var/lib/grafana
-      volumes:
-      - name: grafana-storage
-        persistentVolumeClaim:
-          claimName: grafana-pvc
-```
-
-## 7. 安全配置
-
-### 7.1 网络策略
-```yaml
-# network-policy.yaml
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: backend-network-policy
-  namespace: production
-spec:
-  podSelector:
-    matchLabels:
-      app: backend
-  policyTypes:
-  - Ingress
-  - Egress
-  ingress:
-  - from:
-    - namespaceSelector:
-        matchLabels:
-          name: production
-    - podSelector:
-        matchLabels:
-          app: frontend
-    ports:
-    - protocol: TCP
-      port: 8080
-  egress:
-  - to:
-    - namespaceSelector:
-        matchLabels:
-          name: production
-    ports:
-    - protocol: TCP
-      port: 5432  # PostgreSQL
-    - protocol: TCP
-      port: 6379  # Redis
-```
-
-### 7.2 Pod安全策略
-```yaml
-# pod-security-policy.yaml
-apiVersion: policy/v1beta1
-kind: PodSecurityPolicy
-metadata:
-  name: restricted
-spec:
-  privileged: false
-  allowPrivilegeEscalation: false
-  requiredDropCapabilities:
-  - ALL
-  volumes:
-  - 'configMap'
-  - 'emptyDir'
-  - 'projected'
-  - 'secret'
-  - 'downwardAPI'
-  - 'persistentVolumeClaim'
-  hostNetwork: false
-  hostIPC: false
-  hostPID: false
-  runAsUser:
-    rule: 'MustRunAsNonRoot'
-  seLinux:
-    rule: 'RunAsAny'
-  supplementalGroups:
-    rule: 'RunAsAny'
-  fsGroup:
-    rule: 'RunAsAny'
-  readOnlyRootFilesystem: true
-```
-
-## 8. 备份和恢复
-
-### 8.1 数据库备份
-```bash
-#!/bin/bash
-# 数据库备份脚本
-
-# PostgreSQL备份
-kubectl exec -n production postgres-0 -- pg_dump -U appuser app_production > backup_$(date +%Y%m%d_%H%M%S).sql
-
-# Redis备份  
-kubectl exec -n production redis-0 -- redis-cli save
-cp /data/dump.rdb backup_redis_$(date +%Y%m%d_%H%M%S).rdb
-
-# 上传到云存储
-aws s3 cp backup_*.sql s3://backups/postgres/
-aws s3 cp backup_*.rdb s3://backups/redis/
-```
-
-### 8.2 应用配置备份
-```bash
-#!/bin/bash
-# 配置备份脚本
-
-# 备份所有ConfigMap和Secret
-kubectl get configmap -A -o yaml > configmaps_backup.yaml
-kubectl get secret -A -o yaml > secrets_backup.yaml
-
-# 备份Ingress配置
-kubectl get ingress -A -o yaml > ingress_backup.yaml
-
-# 压缩备份文件
-tar -czf k8s_config_backup_$(date +%Y%m%d_%H%M%S).tar.gz *.yaml
-
-# 上传到安全存储
-aws s3 cp k8s_config_backup_*.tar.gz s3://backups/kubernetes/
-```
-
-## 9. 运维管理
-
-### 9.1 日常维护清单
-- [ ] 检查所有Pod运行状态
-- [ ] 验证服务可用性
-- [ ] 检查资源使用情况
-- [ ] 查看应用日志
-- [ ] 验证监控告警
-- [ ] 检查备份任务
-
-### 9.2 故障排查指南
-```bash
-# 1. 检查Pod状态
-kubectl get pods -A | grep -v Running
-
-# 2. 查看Pod日志
-kubectl logs <pod-name> -n <namespace> --tail=100
-
-# 3. 检查服务状态
-kubectl get svc -A
-
-# 4. 检查Ingress状态
-kubectl get ingress -A
-
-# 5. 检查资源使用
-kubectl top nodes
-kubectl top pods -A
-
-# 6. 检查事件
-kubectl get events -A --sort-by='.lastTimestamp'
-```
-
-### 9.3 扩容缩容操作
-```bash
-# 手动扩容
-kubectl scale deployment app-backend --replicas=5 -n production
-
-# 自动扩缩容配置
-kubectl autoscale deployment app-backend --min=3 --max=10 --cpu-percent=70 -n production
-
-# 查看HPA状态
-kubectl get hpa -n production
-```
-
-## 10. 部署验证
-
-### 10.1 功能验证清单
-- [ ] API接口测试
-- [ ] 数据库连接测试
-- [ ] 缓存服务测试
-- [ ] 消息队列测试
-- [ ] 文件上传下载测试
-- [ ] 用户认证测试
-- [ ] 权限控制测试
-
-### 10.2 性能验证
-```bash
-# 使用Apache Bench进行压力测试
-ab -n 10000 -c 100 https://api.example.com/health
-
-# 使用wrk进行高性能测试
-wrk -t12 -c400 -d30s https://api.example.com/api/users
-
-# 使用k6进行现代负载测试
-k6 run --vus 100 --duration 30s load-test.js
-```
-
-### 10.3 安全验证
-- [ ] SSL证书有效性
-- [ ] 端口扫描检测
-- [ ] 漏洞扫描
-- [ ] 权限验证
-- [ ] 输入验证测试
-- [ ] SQL注入测试
-
----
-
-## 附录
-
-### A. 部署脚本集合
-```bash
-# 一键部署脚本
-#!/bin/bash
-set -e
-
-echo "开始部署系统..."
-
-# 1. 环境检查
-./scripts/environment-check.sh
-
-# 2. 创建命名空间
-kubectl apply -f manifests/namespaces.yaml
-
-# 3. 部署配置和密钥
-kubectl apply -f manifests/configmaps/
-kubectl apply -f manifests/secrets/
-
-# 4. 部署数据库
-kubectl apply -f manifests/databases/
-
-# 5. 部署应用服务
-kubectl apply -f manifests/applications/
-
-# 6. 部署监控告警
-kubectl apply -f manifests/monitoring/
-
-# 7. 部署Ingress
-kubectl apply -f manifests/ingress/
-
-echo "部署完成！"
-```
-
-### B. 故障处理手册
-```bash
-# 常见故障处理
-
-# Pod无法启动
-kubectl describe pod <pod-name> -n <namespace>
-kubectl logs <pod-name> -n <namespace>
-
-# 服务无法访问
-kubectl get svc -n <namespace>
-kubectl get endpoints <service-name> -n <namespace>
-
-# Ingress无法访问
-kubectl get ingress -n <namespace>
-kubectl describe ingress <ingress-name> -n <namespace>
-
-# 节点NotReady
-kubectl describe node <node-name>
-sudo journalctl -u kubelet
-```
-
-### C. 联系方式
-- **技术支持**: support@example.com
-- **运维团队**: ops@example.com
-- **安全团队**: security@example.com
-- **紧急联系**: +86-400-123-4567
-
----
-
-**部署建议**: {deployment_tips[0] if deployment_tips else '建议在生产环境部署前，先在测试环境进行完整验证'}
-
-**更新时间**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-
+**创建日期**: {datetime.now().strftime('%Y-%m-%d')}
 **版本**: v1.0
+**作者**: AI架构设计助手
 """
+        except Exception as e:
+            logger.error(f"部署文档备用内容生成失败: {e}")
+            return f"# 部署指南\\n\\n由于生成过程中出现错误，这里提供简化的部署指南。\\n\\n**错误信息**: {str(e)}\\n\\n**创建时间**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+
+    def _format_architecture_document(self, content: str) -> str:
+        """格式化架构设计文档"""
+        try:
+            # 首先确保content是字符串类型
+            if not isinstance(content, str):
+                content = str(content)
+            
+            # 基本的文档格式化
+            if not content.strip():
+                return "# 架构设计文档\\n\\n文档内容为空。"
+            
+            # 确保文档有基本的结构
+            if not content.startswith("#"):
+                content = f"# 系统架构设计说明书\n\n{content}"
+            
+            # 添加页脚信息
+            if "**创建日期**" not in content:
+                content += f"\n\n---\n\n**创建日期**: {datetime.now().strftime('%Y-%m-%d')}\n**版本**: v1.0"
+            
+            return content
+            
+        except Exception as e:
+            logger.error(f"架构文档格式化失败: {e}")
+            # 如果格式化失败，至少返回原始内容的字符串表示
+            return str(content) if not isinstance(content, str) else content
+
+    def _format_technology_selection(self, content: str) -> str:
+        """格式化技术选型文档"""
+        try:
+            # 首先确保content是字符串类型
+            if not isinstance(content, str):
+                content = str(content)
+            
+            # 基本的文档格式化
+            if not content.strip():
+                return "# 技术选型说明书\\n\\n文档内容为空。"
+            
+            # 确保文档有基本的结构
+            if not content.startswith("#"):
+                content = f"# 技术选型说明书\n\n{content}"
+            
+            # 添加页脚信息
+            if "**创建日期**" not in content:
+                content += f"\n\n---\n\n**创建日期**: {datetime.now().strftime('%Y-%m-%d')}\n**版本**: v1.0"
+            
+            return content
+            
+        except Exception as e:
+            logger.error(f"技术选型文档格式化失败: {e}")
+            # 如果格式化失败，至少返回原始内容的字符串表示
+            return str(content) if not isinstance(content, str) else content
+
+    def _format_deployment_guide(self, content: str) -> str:
+        """格式化部署指南"""
+        try:
+            # 首先确保content是字符串类型
+            if not isinstance(content, str):
+                content = str(content)
+            
+            # 基本的文档格式化
+            if not content.strip():
+                return "# 部署指南\\n\\n文档内容为空。"
+            
+            # 确保文档有基本的结构
+            if not content.startswith("#"):
+                content = f"# 系统部署指南\\n\\n{content}"
+            
+            # 添加页脚信息
+            if "**创建日期**" not in content:
+                content += f"\n\n---\n\n**创建日期**: {datetime.now().strftime('%Y-%m-%d')}\n**版本**: v1.0"
+            
+            return content
+            
+        except Exception as e:
+            logger.error(f"部署指南格式化失败: {e}")
+            return str(content) if not isinstance(content, str) else content
 
     async def _call_model_with_streaming(self, prompt: str) -> str:
         """调用模型并处理流式响应"""
@@ -1538,6 +810,13 @@ sudo journalctl -u kubelet
                                     full_content = current_content
                                 last_content = current_content
                         
+                        # 如果流式结束但内容不完整，记录警告
+                        if not full_content.strip().endswith(("。", ".", "!", "}", "]", ">", "```", "---", "**版本**: v1.0")):
+                             logger.warning("文档生成可能被截断，末尾字符: " + full_content[-20:])
+                             # 尝试自动补全（简单的）
+                             if full_content.strip().endswith("|"):
+                                 full_content += "\n\n---"
+                        
                         return full_content
                     except Exception as stream_error:
                         logger.warning(f"流式处理失败，尝试直接返回响应: {stream_error}")
@@ -1579,427 +858,3 @@ sudo journalctl -u kubelet
         except Exception as e:
             logger.error(f"模型调用失败: {e}")
             raise
-
-    def _generate_fallback_architecture_content(self, requirements: Dict[str, Any], 
-                                              architecture_design: Dict[str, Any]) -> str:
-        """生成架构设计文档的备用内容"""
-        try:
-            logger.info("生成架构设计文档备用内容")
-            
-            # 提取架构信息
-            components = architecture_design.get("components", [])
-            tech_stack = architecture_design.get("technology_stack", {})
-            
-            doc_content = f"""# 系统架构设计说明书
-
-## 1. 执行摘要
-
-### 项目背景
-基于用户需求分析，设计一套现代化的软件系统架构。
-
-### 架构概述
-系统采用分层架构设计，包含前端展示层、业务逻辑层、数据访问层和基础设施层。
-
-### 关键技术决策
-- 前端框架: {tech_stack.get('frontend', 'React')}
-- 后端框架: {tech_stack.get('backend', 'Spring Boot')}
-- 数据库: {tech_stack.get('database', 'PostgreSQL')}
-- 部署平台: {tech_stack.get('deployment', 'Kubernetes')}
-
-## 2. 架构概览
-
-### 系统架构图
-```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   前端层       │    │   应用层       │    │   数据层       │
-│                │────│                │────│                │
-│  Web/Mobile    │    │  API Gateway   │    │   Database     │
-│                │    │  Microservices │    │   Cache        │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-```
-
-### 核心组件
-"""
-            
-            # 添加组件信息
-            for component in components:
-                doc_content += f"""
-#### {component.get('name', '未知组件')}
-- 类型: {component.get('type', '未知')}
-- 技术栈: {component.get('technology', '待定')}
-- 职责: {component.get('description', '待完善')}
-"""
-            
-            doc_content += f"""
-
-## 3. 技术架构
-
-### 前端架构
-- 框架选择: {tech_stack.get('frontend', 'React 18')}
-- 状态管理: Redux Toolkit
-- UI组件库: Ant Design
-- 构建工具: Vite
-
-### 后端架构  
-- 框架选择: {tech_stack.get('backend', 'Spring Boot 3.x')}
-- API设计: RESTful + GraphQL
-- 认证授权: JWT + OAuth2
-- 消息队列: {tech_stack.get('message_queue', 'RabbitMQ')}
-
-### 数据库架构
-- 主数据库: {tech_stack.get('database', 'PostgreSQL 15')}
-- 缓存数据库: {tech_stack.get('cache', 'Redis 7')}
-- 连接池: HikariCP
-- ORM框架: JPA/Hibernate
-
-## 4. 部署架构
-
-### 基础设施
-- 容器平台: {tech_stack.get('container', 'Docker')}
-- 编排系统: {tech_stack.get('orchestration', 'Kubernetes')}
-- 服务网格: Istio
-- 镜像仓库: Harbor
-
-### 网络拓扑
-- 负载均衡: Nginx + HAProxy
-- API网关: Kong
-- 服务发现: Consul
-- 配置中心: Nacos
-
-## 5. 安全架构
-
-### 安全原则
-- 零信任架构
-- 最小权限原则
-- 深度防御策略
-- 安全左移
-
-### 身份认证
-- 多因子认证
-- 单点登录(SSO)
-- 会话管理
-- 密码策略
-
-## 6. 性能设计
-
-### 性能指标
-- 响应时间: < 200ms
-- 吞吐量: > 1000 TPS
-- 并发用户: > 10000
-- 可用性: > 99.9%
-
-### 优化策略
-- 缓存策略: 多级缓存
-- 数据库优化: 索引优化
-- 代码优化: 异步处理
-- 网络优化: CDN加速
-
-## 7. 运维架构
-
-### 监控告警
-- 指标监控: Prometheus + Grafana
-- 日志收集: ELK Stack
-- 链路追踪: Jaeger
-- 告警通知: AlertManager
-
-### 备份恢复
-- 数据备份: 定期全量+增量
-- 灾难恢复: 多地域部署
-- 故障转移: 自动切换
-- 数据一致性: 强一致性
-
-## 8. 实施计划
-
-### 开发阶段
-1. 需求分析 (2周)
-2. 架构设计 (1周)
-3. 开发实现 (8周)
-4. 测试验证 (3周)
-5. 上线部署 (1周)
-
-### 里程碑
-- M1: 架构设计完成
-- M2: 核心功能开发完成
-- M3: 系统集成测试完成
-- M4: 生产环境上线
-
-## 9. 风险评估
-
-### 技术风险
-- 新技术学习成本
-- 第三方服务依赖
-- 性能瓶颈风险
-- 安全漏洞风险
-
-### 缓解措施
-- 技术预研和POC
-- 多供应商策略
-- 性能测试验证
-- 安全扫描和渗透测试
-
-## 10. 附录
-
-### 术语表
-- API: Application Programming Interface
-- CDN: Content Delivery Network
-- HA: High Availability
-- SLA: Service Level Agreement
-
-### 参考文档
-- [架构设计原则](https://example.com/architecture-principles)
-- [技术选型指南](https://example.com/tech-selection)
-- [安全最佳实践](https://example.com/security-best-practices)
-
----
-
-**创建日期**: {datetime.now().strftime('%Y-%m-%d')}
-**版本**: v1.0
-**作者**: AI架构设计助手
-"""
-            
-            return doc_content
-            
-        except Exception as e:
-            logger.error(f"架构设计备用内容生成失败: {e}")
-            return f"# 架构设计文档\n\n由于生成过程中出现错误，这里提供简化的架构设计文档。\n\n**错误信息**: {str(e)}\n\n**创建时间**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-
-    def _format_architecture_document(self, content: str) -> str:
-        """格式化架构设计文档"""
-        try:
-            # 首先确保content是字符串类型
-            if not isinstance(content, str):
-                content = str(content)
-            
-            # 基本的文档格式化
-            if not content.strip():
-                return "# 架构设计文档\n\n文档内容为空。"
-            
-            # 确保文档有基本的结构
-            if not content.startswith("#"):
-                content = f"# 系统架构设计说明书\n\n{content}"
-            
-            # 添加页脚信息
-            if "**创建日期**" not in content:
-                content += f"\n\n---\n\n**创建日期**: {datetime.now().strftime('%Y-%m-%d')}\n**版本**: v1.0"
-            
-            return content
-            
-        except Exception as e:
-            logger.error(f"架构文档格式化失败: {e}")
-            # 如果格式化失败，至少返回原始内容的字符串表示
-            return str(content) if not isinstance(content, str) else content
-
-    def _format_technology_selection(self, content: str) -> str:
-        """格式化技术选型文档"""
-        try:
-            # 首先确保content是字符串类型
-            if not isinstance(content, str):
-                content = str(content)
-            
-            # 基本的文档格式化
-            if not content.strip():
-                return "# 技术选型说明书\n\n文档内容为空。"
-            
-            # 确保文档有基本的结构
-            if not content.startswith("#"):
-                content = f"# 技术选型说明书\n\n{content}"
-            
-            # 添加页脚信息
-            if "**创建日期**" not in content:
-                content += f"\n\n---\n\n**创建日期**: {datetime.now().strftime('%Y-%m-%d')}\n**版本**: v1.0"
-            
-            return content
-            
-        except Exception as e:
-            logger.error(f"技术选型文档格式化失败: {e}")
-            # 如果格式化失败，至少返回原始内容的字符串表示
-            return str(content) if not isinstance(content, str) else content
-
-    def _generate_fallback_tech_content(self, requirements: Dict[str, Any], 
-                                     architecture_design: Dict[str, Any]) -> str:
-        """生成技术选型文档的备用内容"""
-        try:
-            logger.info("生成技术选型备用内容")
-            
-            tech_stack = architecture_design.get("technology_stack", {})
-            
-            return f"""# 技术选型说明书
-
-## 1. 技术选型概述
-
-### 选型原则
-- 成熟稳定: 选择经过验证的成熟技术
-- 社区活跃: 拥有活跃的开发者社区
-- 学习成本: 团队技术栈匹配度高
-- 性能要求: 满足系统性能需求
-- 可维护性: 易于维护和扩展
-
-### 评估标准
-- 功能性: 是否满足业务需求
-- 可靠性: 系统稳定性和容错能力
-- 性能: 响应时间和吞吐量
-- 安全性: 安全特性和漏洞历史
-- 成本: 开发、部署和维护成本
-
-## 2. 前端技术栈
-
-### 框架选择: {tech_stack.get('frontend', 'React 18')}
-**选择理由:**
-- 组件化开发，提高开发效率
-- 虚拟DOM，性能优秀
-- 生态系统完善
-- 社区活跃，学习资源丰富
-
-**替代方案:** Vue.js, Angular
-
-### UI组件库: Ant Design
-**选择理由:**
-- 企业级UI设计语言
-- 组件丰富，覆盖常见场景
-- 支持主题定制
-- 文档完善，示例丰富
-
-**替代方案:** Material-UI, Element Plus
-
-### 状态管理: Redux Toolkit
-**选择理由:**
-- 简化Redux使用
-- 内置最佳实践
-- TypeScript支持良好
-- 开发工具完善
-
-**替代方案:** Zustand, Jotai
-
-## 3. 后端技术栈
-
-### 框架选择: {tech_stack.get('backend', 'Spring Boot 3.x')}
-**选择理由:**
-- 快速开发和部署
-- 自动配置，简化开发
-- 微服务架构支持
-- 生态系统成熟
-
-**替代方案:** Node.js Express, Django
-
-### 数据库: {tech_stack.get('database', 'PostgreSQL 15')}
-**选择理由:**
-- 开源免费，成本可控
-- 功能强大，支持复杂查询
-- 扩展性好，支持分区表
-- 社区活跃，文档完善
-
-**替代方案:** MySQL, MongoDB
-
-### 缓存: {tech_stack.get('cache', 'Redis 7')}
-**选择理由:**
-- 内存数据库，性能优秀
-- 支持多种数据结构
-- 持久化支持，数据安全
-- 集群模式，高可用
-
-**替代方案:** Memcached, Hazelcast
-
-### 消息队列: {tech_stack.get('message_queue', 'RabbitMQ')}
-**选择理由:**
-- 可靠性高，消息不丢失
-- 支持多种消息模式
-- 管理界面友好
-- 客户端丰富
-
-**替代方案:** Apache Kafka, Apache Pulsar
-
-## 4. 基础设施
-
-### 容器化: {tech_stack.get('container', 'Docker')}
-**选择理由:**
-- 应用打包标准化
-- 环境一致性保证
-- 资源隔离性好
-- 生态系统完善
-
-**替代方案:** Podman, containerd
-
-### 编排系统: {tech_stack.get('orchestration', 'Kubernetes')}
-**选择理由:**
-- 容器编排标准
-- 自动扩缩容
-- 服务发现和负载均衡
-- 滚动升级和回滚
-
-**替代方案:** Docker Swarm, Apache Mesos
-
-### 云服务: AWS
-**选择理由:**
-- 服务种类丰富
-- 全球基础设施
-- 安全合规认证
-- 技术支持完善
-
-**替代方案:** 阿里云, 腾讯云
-
-## 5. 开发工具
-
-### 版本控制: Git
-**选择理由:**
-- 分布式版本控制
-- 分支管理灵活
-- 协作开发便利
-- 社区标准工具
-
-### CI/CD: Jenkins
-**选择理由:**
-- 开源免费
-- 插件生态丰富
-- 支持多种构建方式
-- 可扩展性强
-
-**替代方案:** GitLab CI, GitHub Actions
-
-### 代码质量: SonarQube
-**选择理由:**
-- 代码质量检测
-- 技术债务管理
-- 多语言支持
-- 集成方便
-
-## 6. 风险评估
-
-### 技术风险
-- 新技术学习成本
-- 第三方依赖风险
-- 性能瓶颈风险
-- 安全漏洞风险
-
-### 缓解措施
-- 技术预研和培训
-- 多供应商策略
-- 性能测试验证
-- 安全扫描和监控
-
-## 7. 实施建议
-
-### 渐进式采用
-- 先在非核心系统试用
-- 逐步扩大使用范围
-- 建立最佳实践
-- 团队技能培训
-
-### 监控评估
-- 建立技术指标
-- 定期评估效果
-- 及时调整策略
-- 持续优化改进
-
----
-
-**创建日期**: {datetime.now().strftime('%Y-%m-%d')}
-**版本**: v1.0
-**作者**: AI架构设计助手
-"""
-            
-        except Exception as e:
-            logger.error(f"技术选型备用内容生成失败: {e}")
-            return f"# 技术选型说明书\n\n由于生成过程中出现错误，这里提供简化的技术选型文档。\n\n**错误信息**: {str(e)}\n\n**创建时间**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-
-
-
