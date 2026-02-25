@@ -111,21 +111,121 @@ class ArchitectureDesignWorkflow(BaseWorkflow):
                 selected_proposal = proposals[0]
                 logger.info(f"非交互模式，自动选择方案: {selected_proposal.get('name')}")
             
-            # Step 2: 架构详细设计（基于选定方案）
-            logger.info("步骤2: 架构详细设计（基于选定方案）")
-            step1_result = await self._step_architecture_analysis(requirements, requirement_entries, selected_proposal)
-            workflow_result["steps"]["architecture_analysis"] = step1_result
+            # Step 2 & 3: 架构详细设计与验证（循环闭环）
+            logger.info("步骤2 & 3: 架构详细设计与验证（循环闭环）")
             
-            if step1_result["status"] != "completed":
-                raise Exception(f"架构分析失败: {step1_result.get('error', '未知错误')}")
+            # 使用配置中的最大迭代次数
+            from config import ARCHITECTURE_WORKFLOW_CONFIG
+            max_iterations = kwargs.get("max_iterations", ARCHITECTURE_WORKFLOW_CONFIG.get("max_iterations", 10))
+            current_iteration = 0
+            is_validated = False
             
-            # Step 3: 架构验证（包含需求覆盖验证）
-            logger.info("步骤3: 架构验证（包含需求覆盖验证）")
-            step2_result = await self._step_architecture_validation(requirements, step1_result["result"], requirement_entries)
-            workflow_result["steps"]["architecture_validation"] = step2_result
+            current_architecture = None
+            step2_result = None # Validation result
+            step1_result = None # Analysis result (for loop scope)
             
-            if step2_result["status"] != "completed":
-                raise Exception(f"架构验证失败: {step2_result.get('error', '未知错误')}")
+            while current_iteration < max_iterations:
+                current_iteration += 1
+                logger.info(f"执行第 {current_iteration}/{max_iterations} 轮架构设计与验证")
+                
+                # 2.1 架构设计/优化
+                if current_iteration == 1:
+                    # 第一轮：基于选定方案的初始设计
+                    step1_result = await self._step_architecture_analysis(requirements, requirement_entries, selected_proposal)
+                    
+                    if step1_result["status"] != "completed":
+                        raise Exception(f"架构分析失败: {step1_result.get('error', '未知错误')}")
+                    
+                    current_architecture = step1_result["result"]
+                    workflow_result["steps"][f"architecture_analysis_round_{current_iteration}"] = step1_result
+
+                else:
+                    # 后续轮次：基于验证结果的优化
+                    logger.info("基于验证反馈优化架构设计...")
+                    refined_arch = await self.analyzer_agent.refine_architecture(requirements, current_architecture, step2_result["result"])
+                    
+                    # 重新计算需求覆盖率，确保数据完整性
+                    refined_arch["requirement_coverage"] = {
+                        "total_requirements": len(requirement_entries),
+                        "covered_requirements": len([r for r in requirement_entries if self._is_requirement_covered(r, refined_arch)]),
+                        "coverage_details": self._analyze_requirement_coverage(requirement_entries, refined_arch)
+                    }
+                    
+                    step1_result = {
+                        "step_name": f"architecture_refinement_round_{current_iteration}",
+                        "start_time": datetime.now().isoformat(),
+                        "status": "completed",
+                        "result": refined_arch,
+                        "end_time": datetime.now().isoformat()
+                    }
+                    
+                    if step1_result["status"] != "completed":
+                        raise Exception(f"架构优化失败: {step1_result.get('error', '未知错误')}")
+                    
+                    # 检查优化是否有效（简单哈希或关键字段比较）
+                    if str(refined_arch.get("system_architecture")) == str(current_architecture.get("system_architecture")):
+                        logger.warning("架构优化未产生实质性变更，可能已收敛或Agent无法解决当前问题。")
+                        # 可以选择跳出循环或增加温度参数重试，这里简单跳出
+                        logger.warning("停止优化循环。")
+                        break
+
+                    current_architecture = step1_result["result"]
+                    workflow_result["steps"][f"architecture_refinement_round_{current_iteration}"] = step1_result
+                
+                # 2.2 架构验证
+                step2_result = await self._step_architecture_validation(requirements, current_architecture, requirement_entries)
+                workflow_result["steps"][f"architecture_validation_round_{current_iteration}"] = step2_result
+                
+                if step2_result["status"] != "completed":
+                    raise Exception(f"架构验证失败: {step2_result.get('error', '未知错误')}")
+                
+                # 检查验证结果
+                validation_data = step2_result["result"]
+                overall_score = validation_data.get("overall_score", 0)
+                key_issues = validation_data.get("key_issues", [])
+                critical_issues = [i for i in key_issues if i.get("severity") in ["high", "critical"]]
+                
+                # 记录详细的验证日志
+                logger.info(f"本轮验证评分: {overall_score}, 严重问题数: {len(critical_issues)}")
+                if key_issues:
+                    logger.info(f"发现问题: {len(key_issues)} 个")
+                    for idx, issue in enumerate(key_issues):
+                        logger.info(f"  {idx+1}. {issue.get('issue', '未知问题')} ({issue.get('severity', '未知')}) - {issue.get('description', '')[:50]}...")
+                
+                # 记录次要问题（Medium/Low），确保用户可见
+                other_issues = [i for i in key_issues if i.get("severity") not in ["high", "critical"]]
+                if other_issues:
+                    logger.info(f"次要问题: {len(other_issues)} 个")
+                    for idx, issue in enumerate(other_issues[:5]): # 显示前5个次要问题
+                        logger.info(f"  {idx+1}. {issue.get('issue', '未知问题')} ({issue.get('severity', '未知')}) - {issue.get('description', '')[:50]}...")
+
+                # 如果没有严重问题，即使分数略低也允许通过（降低阈值或人工确认）
+                # 这里我们保持 7.0 的阈值，但添加一个逻辑：如果迭代多次且无严重问题，可以适当降低要求
+                threshold = 7.0
+                if current_iteration > 3 and not critical_issues:
+                    threshold = 6.0
+                    logger.info(f"迭代次数已超过3次且无严重问题，临时降低评分阈值至 {threshold}")
+                
+                if overall_score >= threshold and not critical_issues:
+                    logger.info("架构验证通过！")
+                    is_validated = True
+                    break
+                else:
+                    logger.warning("架构验证未通过，准备下一轮优化...")
+                    
+                    # 记录优化建议
+                    if critical_issues:
+                        logger.warning("【主要优化点】(Critical/High):")
+                        for issue in critical_issues:
+                            logger.warning(f" - {issue.get('issue')}: {issue.get('recommendation', '无建议')}")
+                    
+                    if other_issues:
+                        logger.warning("【次要优化点】(Medium/Low):")
+                        for issue in other_issues[:5]: # 只显示前5个次要问题
+                             logger.warning(f" - {issue.get('issue')}: {issue.get('recommendation', '无建议')}")
+            
+            if not is_validated:
+                logger.warning(f"达到最大迭代次数 {max_iterations}，使用最后一轮结果")
             
             # Step 4: 技术文档生成（包含需求追踪矩阵）
             logger.info("步骤4: 技术文档生成（包含需求追踪矩阵）")
@@ -332,15 +432,23 @@ class ArchitectureDesignWorkflow(BaseWorkflow):
         try:
             # 从各个步骤的结果中提取关键信息
             architecture_design = step1_result["result"]
+            system_arch = architecture_design.get("system_architecture", {})
             validation_result = step2_result["result"]
             technical_docs = step3_result["result"]
             
+            # 兼容处理 system_components 和 components
+            components = system_arch.get("system_components", [])
+            if not components:
+                components = system_arch.get("components", [])
+            if not components:
+                components = architecture_design.get("system_components", [])
+            
             summary = {
                 "architecture_overview": {
-                    "architecture_style": architecture_design.get("architecture_style", "未指定"),
+                    "architecture_style": system_arch.get("architecture_pattern", system_arch.get("pattern", architecture_design.get("architecture_style", "未指定"))),
                     "technology_stack": list(architecture_design.get("technology_stack", {}).keys()),
-                    "component_count": len(architecture_design.get("system_components", [])),
-                    "key_components": [comp.get("name", "未知组件") for comp in architecture_design.get("system_components", [])[:5]]
+                    "component_count": len(components),
+                    "key_components": [comp.get("name", "未知组件") for comp in components[:5]]
                 },
                 "validation_summary": {
                     "overall_score": validation_result.get("overall_score", 0),
@@ -687,6 +795,42 @@ class ArchitectureDesignWorkflow(BaseWorkflow):
                     lines.append(f"{k}: {v.get('status')}")
                 f.write("\n".join(lines))
             
+            # 保存验证报告
+            if "validation_result" in workflow_result.get("final_result", {}):
+                val_res = workflow_result["final_result"]["validation_result"]
+                val_report_file = f"{output_dir}/architecture_validation_report_{timestamp}.md"
+                with open(val_report_file, 'w', encoding='utf-8') as f:
+                    f.write(f"# 架构验证报告\n\n")
+                    f.write(f"生成时间: {datetime.now().isoformat()}\n")
+                    f.write(f"总体评分: {val_res.get('overall_score', 0)}\n\n")
+                    
+                    f.write("## 1. 评分详情\n")
+                    dim_scores = val_res.get('dimension_scores', {})
+                    for k, v in dim_scores.items():
+                        f.write(f"- {k}: {v}\n")
+                    f.write("\n")
+                    
+                    f.write("## 2. 关键问题 (Key Issues)\n")
+                    key_issues = val_res.get('key_issues', [])
+                    if key_issues:
+                        for issue in key_issues:
+                            f.write(f"- **{issue.get('issue', '问题')}** (严重性: {issue.get('severity', '未知')})\n")
+                            f.write(f"  - 描述: {issue.get('description', '')}\n")
+                            f.write(f"  - 建议: {issue.get('recommendation', '')}\n")
+                    else:
+                        f.write("未发现关键问题。\n")
+                    f.write("\n")
+                    
+                    f.write("## 3. 改进建议 (Recommendations)\n")
+                    recommendations = val_res.get('recommendations', [])
+                    if recommendations:
+                        for rec in recommendations:
+                            f.write(f"- **{rec.get('category', '通用')}** (优先级: {rec.get('priority', '未知')})\n")
+                            f.write(f"  - {rec.get('description', '')}\n")
+                            f.write(f"  - 实施: {rec.get('implementation', '')}\n")
+                    else:
+                        f.write("暂无改进建议。\n")
+                        
             logger.info(f"工作流结果已保存到 {output_dir} 目录")
             
         except Exception as e:

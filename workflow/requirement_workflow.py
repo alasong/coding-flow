@@ -104,7 +104,10 @@ class RequirementAnalysisWorkflow(BaseWorkflow):
             # 步骤2.5: 初始验证与闭环修复 (Loop)
             # 在进入人工确认前，先进行自动化的验证和修复
             logger.info("步骤2.5: 初始验证与闭环修复...")
-            max_refinement_loops = 2
+            
+            # 使用配置中的最大迭代次数
+            from config import REQUIREMENT_WORKFLOW_CONFIG
+            max_refinement_loops = REQUIREMENT_WORKFLOW_CONFIG.get("max_iterations", 10)
             current_loop = 0
             
             while current_loop < max_refinement_loops:

@@ -21,12 +21,19 @@ LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 
 # 架构设计工作流配置
 ARCHITECTURE_WORKFLOW_CONFIG = {
-    "max_iterations": int(os.getenv("ARCHITECTURE_MAX_ITERATIONS", "3")),
+    "max_iterations": int(os.getenv("ARCHITECTURE_MAX_ITERATIONS", "10")),
     "timeout": int(os.getenv("ARCHITECTURE_TIMEOUT", "60")),
     "output_formats": ["json", "markdown"],
     "validation_threshold": float(os.getenv("ARCHITECTURE_VALIDATION_THRESHOLD", "7.0")),
     "enable_tech_selection": os.getenv("ENABLE_TECH_SELECTION", "true").lower() == "true",
     "enable_deployment_guide": os.getenv("ENABLE_DEPLOYMENT_GUIDE", "true").lower() == "true"
+}
+
+# 需求分析工作流配置
+REQUIREMENT_WORKFLOW_CONFIG = {
+    "max_iterations": int(os.getenv("REQUIREMENT_MAX_ITERATIONS", "10")),
+    "timeout": int(os.getenv("REQUIREMENT_TIMEOUT", "30")),
+    "output_formats": ["json", "markdown"],
 }
 
 # 主工作流协调器配置

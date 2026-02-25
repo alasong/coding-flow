@@ -72,7 +72,13 @@ class ArchitectureAnalyzerAgent(AgentBase):
         4. 潜在风险与劣势（Cons）
         5. 对关键需求（特别是高优先级的FR和NFR）的响应策略
         
-        请以JSON列表格式返回，每个元素是一套方案。
+        请以JSON列表格式返回，每个元素是一套方案，必须严格包含以下字段：
+        - id: 方案ID (如 proposal_1)
+        - name: 方案名称
+        - description: 核心理念描述
+        - tech_stack: 关键技术栈描述
+        - pros: 优势列表 [str]
+        - cons: 劣势列表 [str]
         """
         
         if not getattr(self, "model", None):
@@ -112,6 +118,70 @@ class ArchitectureAnalyzerAgent(AgentBase):
             logger.warning(f"解析多套架构方案失败: {e}")
             
         return []
+
+    async def refine_architecture(self, requirements: Dict[str, Any], current_architecture: Dict[str, Any], validation_result: Dict[str, Any]) -> Dict[str, Any]:
+        """根据验证结果优化架构"""
+        logger.info(f"[{self.name}] 开始根据验证结果优化架构")
+        
+        # 提取验证反馈
+        key_issues = validation_result.get("key_issues", [])
+        recommendations = validation_result.get("recommendations", [])
+        
+        if not key_issues and not recommendations:
+            logger.info(f"[{self.name}] 没有发现严重问题，无需优化")
+            return current_architecture
+
+        # 准备优化上下文
+        issues_text = "\n".join([f"- 问题: {issue.get('issue', '未知问题')} (严重性: {issue.get('severity', '未知')}) - 描述: {issue.get('description', '')}" for issue in key_issues])
+        recommendations_text = "\n".join([f"- 建议: {rec.get('description', '')} (优先级: {rec.get('priority', '未知')})" for rec in recommendations])
+        
+        prompt = f"""
+        你需要根据以下验证反馈，对现有的系统架构进行优化和修复。
+        
+        现有架构设计（摘要）:
+        - 模式: {current_architecture.get('system_architecture', {}).get('architecture_pattern', '未知')}
+        - 技术栈: {json.dumps(current_architecture.get('technology_stack', {}), ensure_ascii=False)}
+        
+        验证反馈:
+        【发现的问题】
+        {issues_text}
+        
+        【改进建议】
+        {recommendations_text}
+        
+        请针对上述问题和建议，修改和完善架构设计。你需要返回一个完整的、更新后的架构设计JSON。
+        重点关注：
+        1. 解决所有 High/Critical 级别的严重问题。
+        2. 采纳合理的改进建议。
+        3. 保持原有架构中合理的部分不变。
+        
+        请以JSON格式返回更新后的完整架构设计（结构与之前一致，包含 system_architecture, database_design, api_architecture 等字段）。
+        """
+        
+        if not getattr(self, "model", None):
+             # 离线模式：简单合并建议到summary
+            new_arch = current_architecture.copy()
+            new_arch["refinement_note"] = "Based on validation, offline mode simulated refinement."
+            return new_arch
+
+        response = await self.model([{"role": "user", "content": prompt}])
+        content = await self._process_model_response(response)
+        
+        try:
+            import re
+            json_match = re.search(r'\{.*\}', content, re.DOTALL)
+            if json_match:
+                refined_arch = json.loads(json_match.group())
+                # 确保保留必要的元数据
+                if "selected_proposal" in current_architecture and "selected_proposal" not in refined_arch:
+                    refined_arch["selected_proposal"] = current_architecture["selected_proposal"]
+                return refined_arch
+            else:
+                logger.warning(f"[{self.name}] 无法解析优化后的架构JSON，返回原架构")
+                return current_architecture
+        except Exception as e:
+            logger.error(f"[{self.name}] 架构优化失败: {e}")
+            return current_architecture
 
     async def analyze_system_architecture(self, requirements: Dict[str, Any], selected_proposal: Dict[str, Any] = None) -> Dict[str, Any]:
         """分析系统架构（支持基于选定方案细化）"""

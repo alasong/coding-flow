@@ -178,6 +178,8 @@ python main.py --info
 ### 架构设计结果  
 - `architecture_workflow_result_YYYYMMDD_HHMMSS.json` - 架构设计数据
 - `architecture_design_document_YYYYMMDD_HHMMSS.md` - 架构设计文档
+- `architecture_validation_report_YYYYMMDD_HHMMSS.md` - 架构验证报告（评分、关键问题与建议）
+- `architecture_workflow_process_YYYYMMDD_HHMMSS.md` - 架构设计过程摘要（含闭环优化记录）
 
 ### 技术文档
 - `technology_selection_document_YYYYMMDD_HHMMSS.md` - 技术选型说明
@@ -231,11 +233,14 @@ python main.py --info
 ### 架构设计工作流 (ArchitectureDesignWorkflow)
 1. **输入接收**
    - 接收需求分析阶段的 **交付件 (Artifacts)**，包含明确的 FR/NFR 列表。
-2. **架构分析 (ArchitectureAnalyzerAgent)**
-   - 基于需求条目设计系统架构、技术栈及核心组件。
-3. **架构验证 (ArchitectureValidatorAgent)**
+2. **提案与选择 (Proposal & Selection)**
+   - **架构提案**: 自动生成多套（默认3套）架构方案（如微服务、单体、Serverless等）。
+   - **交互选择**: 用户可查看方案优劣并选择心仪的架构方向（支持交互模式）。
+3. **架构分析 (ArchitectureAnalyzerAgent)**
+   - 基于选定的方案和需求条目，详细设计系统架构、技术栈及核心组件。
+4. **架构验证 (ArchitectureValidatorAgent)**
    - 验证架构设计对需求的覆盖率及合理性。
-4. **文档生成 (TechnicalDocumentGeneratorAgent)**
+5. **文档生成 (TechnicalDocumentGeneratorAgent)**
    - 生成《架构设计文档》及《需求追踪矩阵》。
 
 ## 🎯 端到端验证要点
