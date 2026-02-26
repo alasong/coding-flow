@@ -12,6 +12,14 @@ DEFAULT_MODEL = os.getenv("DEFAULT_MODEL", "qwen3.5-plus")
 DEV_MODEL = os.getenv("DEV_MODEL", "qwen-coder-plus")
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
 
+# 备用模型池 (用于限流时降级)
+BACKUP_MODELS = [
+    "qwen-plus",
+    "qwen-turbo",
+    # 如果配置了 OpenAI Key，也可以加入 gpt-4o-mini 等
+    # "gpt-4o-mini" 
+]
+
 # 工作流配置
 MAX_ITERATIONS = int(os.getenv("MAX_ITERATIONS", "5"))
 TIMEOUT = int(os.getenv("TIMEOUT", "30"))

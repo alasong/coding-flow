@@ -4,12 +4,11 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List, Union
 from datetime import datetime
 from agentscope.agent import AgentBase
-from config import DASHSCOPE_API_KEY, OPENAI_API_KEY, DEFAULT_MODEL
+from config import DASHSCOPE_API_KEY, OPENAI_API_KEY, DEFAULT_MODEL, BACKUP_MODELS
 
 logger = logging.getLogger(__name__)
 
 # 全局信号量，控制所有Agent的总并发请求数，避免触发API限流
-# 将并发限制为 3，以安全地应对 DashScope 的限流策略
 GLOBAL_LLM_SEMAPHORE = asyncio.Semaphore(3)
 
 class BaseAgent(AgentBase):
@@ -18,11 +17,6 @@ class BaseAgent(AgentBase):
     def __init__(self, name: str, model_config_name: str, model_name: str = None, **kwargs):
         """
         初始化Agent基类
-        
-        Args:
-            name: Agent名称
-            model_config_name: 模型配置名称
-            model_name: 指定使用的模型名称，如果为None则使用默认模型
         """
         super().__init__()
         self.name = name
@@ -30,12 +24,12 @@ class BaseAgent(AgentBase):
         self.target_model_name = model_name or DEFAULT_MODEL
         self.created_at = datetime.now()
         self.execution_count = 0
-        self.model = self._init_model()
+        self.model = self._init_model(self.target_model_name)
         
         logger.info(f"初始化Agent: {self.name} (Model: {self.target_model_name})")
     
-    def _init_model(self):
-        """初始化模型"""
+    def _init_model(self, model_name):
+        """初始化指定名称的模型"""
         # 配置真实的大模型API
         if DASHSCOPE_API_KEY or OPENAI_API_KEY:
             try:
@@ -43,79 +37,112 @@ class BaseAgent(AgentBase):
                 if DASHSCOPE_API_KEY:
                     from agentscope.model import DashScopeChatModel
                     model = DashScopeChatModel(
-                        model_name=self.target_model_name,
+                        model_name=model_name,
                         api_key=DASHSCOPE_API_KEY,
                         generate_kwargs={"temperature": 0.7, "max_tokens": 2000}
                     )
-                    logger.info(f"[{self.name}] 成功初始化DashScope模型: {self.target_model_name}")
                     return model
                 else:
                     from agentscope.model import OpenAIChatModel
                     model = OpenAIChatModel(
-                        model_name=self.target_model_name,
+                        model_name=model_name,
                         api_key=OPENAI_API_KEY,
                         generate_kwargs={"temperature": 0.7, "max_tokens": 2000}
                     )
-                    logger.info(f"[{self.name}] 成功初始化OpenAI模型: {self.target_model_name}")
                     return model
-                
             except Exception as e:
-                logger.error(f"[{self.name}] 初始化真实模型失败: {e}")
-                # 不抛出异常，允许降级到 Mock 或无模型模式
+                logger.error(f"[{self.name}] 初始化真实模型失败 ({model_name}): {e}")
                 return None
         else:
-            logger.warning(f"[{self.name}] 未配置API密钥，使用离线分析")
             return None
     
     async def call_llm_with_retry(self, messages: List[Dict[str, str]], max_retries: int = 3, initial_delay: float = 2.0):
         """
-        调用LLM，带有信号量控制和指数退避重试机制
-        
-        Args:
-            messages: 提示词列表
-            max_retries: 最大重试次数
-            initial_delay: 初始延迟秒数
+        调用LLM，带有信号量控制、指数退避重试和模型降级机制
         """
         if not self.model:
             raise RuntimeError(f"Agent {self.name} 未初始化模型")
 
+        # 候选模型列表：主模型 + 备用模型池
+        # 优化：每次调用都重新初始化备用模型可能开销较大，且模型对象本身是无状态的（配置除外），
+        # 但为了简单起见，且 AgentScope 模型初始化通常只是配置参数，这里暂保持现状。
+        # 重点：确保模型对象正确初始化
+        candidate_models = []
+        if self.model:
+             candidate_models.append(self.model)
+        
+        # 初始化备用模型
+        if BACKUP_MODELS:
+            for backup_name in BACKUP_MODELS:
+                if backup_name != self.target_model_name:
+                    backup_model = self._init_model(backup_name)
+                    if backup_model:
+                        candidate_models.append(backup_model)
+        
+        if not candidate_models:
+             raise RuntimeError(f"Agent {self.name} 没有可用的模型")
+
         async with GLOBAL_LLM_SEMAPHORE:
-            for attempt in range(max_retries + 1):
-                try:
-                    # 调用原始模型接口
-                    # 注意：AgentScope 模型可能是同步的，也可能是异步的，这里做兼容处理
-                    if asyncio.iscoroutinefunction(self.model):
-                        response = await self.model(messages)
-                    else:
-                        # 如果是同步调用，将其包装在线程中运行，避免阻塞事件循环
-                        response = await asyncio.to_thread(self.model, messages)
-                    
-                    # 简单检查响应是否有效（AgentScope通常返回对象）
-                    # 如果响应包含错误码，手动抛出异常以触发重试
-                    if hasattr(response, 'status_code') and response.status_code == 429:
-                         raise RuntimeError(f"Rate Limit Exceeded: {response}")
-                         
-                    return response
-                    
-                except Exception as e:
-                    is_last_attempt = attempt == max_retries
-                    error_msg = str(e).lower()
-                    
-                    # 检查是否为限流错误 (Rate Limit / Throttling)
-                    is_rate_limit = "429" in error_msg or "throttling" in error_msg or "rate limit" in error_msg
-                    
-                    if is_rate_limit and not is_last_attempt:
-                        delay = initial_delay * (2 ** attempt)  # 指数退避: 2s, 4s, 8s
-                        logger.warning(f"[{self.name}] API限流，{delay}秒后重试 ({attempt + 1}/{max_retries})...")
-                        await asyncio.sleep(delay)
-                    elif not is_last_attempt and "timeout" in error_msg:
-                        delay = initial_delay * (2 ** attempt)
-                        logger.warning(f"[{self.name}] API超时，{delay}秒后重试 ({attempt + 1}/{max_retries})...")
-                        await asyncio.sleep(delay)
-                    else:
-                        if is_last_attempt:
-                            logger.error(f"[{self.name}] LLM调用彻底失败: {e}")
-                        raise e
+            last_error = None
+            
+            # 尝试每个候选模型
+            for model_idx, current_model in enumerate(candidate_models):
+                
+                # 对当前模型进行重试
+                for attempt in range(max_retries + 1):
+                    try:
+                        # 快速测试（仅在首次使用备用模型时，或者为了快速失败）
+                        # 这里我们直接发起请求，因为请求本身就是测试
+                        
+                        # 尝试判断 __call__ 是否是协程函数
+                        try:
+                            # 针对 AgentScope 的兼容性处理
+                            is_async = asyncio.iscoroutinefunction(current_model.__call__)
+                        except:
+                            is_async = False
+                            
+                        if is_async:
+                            response = await current_model(messages)
+                        else:
+                            response = await asyncio.to_thread(current_model, messages)
+                            if asyncio.iscoroutine(response):
+                                response = await response
+                        
+                        # 检查限流状态码
+                        if hasattr(response, 'status_code') and response.status_code == 429:
+                             raise RuntimeError(f"Rate Limit Exceeded: {response}")
+                             
+                        # 如果成功，直接返回
+                        return response
+                        
+                    except Exception as e:
+                        last_error = e
+                        error_msg = str(e).lower()
+                        is_rate_limit = "429" in error_msg or "throttling" in error_msg or "rate limit" in error_msg
+                        
+                        if is_rate_limit:
+                            if attempt < max_retries:
+                                delay = initial_delay * (2 ** attempt)
+                                logger.warning(f"[{self.name}] API限流 (Model {model_idx}), {delay}s后重试...")
+                                await asyncio.sleep(delay)
+                            else:
+                                logger.warning(f"[{self.name}] Model {model_idx} 限流重试耗尽，尝试下一个备用模型...")
+                                break # 跳出当前模型的重试循环，进入下一个模型
+                        else:
+                            # 非限流错误，直接抛出或重试
+                            if attempt < max_retries:
+                                await asyncio.sleep(initial_delay)
+                            else:
+                                # 如果是非限流错误（如参数错误、网络断开），通常换模型也不一定能解决，
+                                # 但为了鲁棒性，如果是备用模型，我们还是可以尝试下一个。
+                                # 如果是主模型出错且非限流，可能需要更谨慎。
+                                # 这里简化策略：只要出错且重试耗尽，就换模型
+                                logger.warning(f"[{self.name}] Model {model_idx} 调用失败: {e}，尝试下一个备用模型...")
+                                break
+
+            # 所有模型都失败了
+            logger.error(f"[{self.name}] 所有可用模型均调用失败。Last error: {last_error}")
+            raise last_error
 
     async def _process_model_response(self, response):
         """处理模型响应，支持流式和非流式响应"""
