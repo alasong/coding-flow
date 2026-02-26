@@ -10,6 +10,7 @@ from agents.coverage_auditor import CoverageAuditorAgent
 from agents.concurrency_orchestrator import ConcurrencyOrchestratorAgent
 from agents.dev_plan_generator import DevPlanGeneratorAgent
 from agents.dev_document_exporter import DevDocumentExporterAgent
+from agents.dev_plan_reviewer import DevPlanReviewerAgent
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +23,8 @@ class ProjectDevelopmentWorkflow:
                  auditor: Optional[CoverageAuditorAgent] = None,
                  orchestrator: Optional[ConcurrencyOrchestratorAgent] = None,
                  plan_generator: Optional[DevPlanGeneratorAgent] = None,
-                 exporter: Optional[DevDocumentExporterAgent] = None):
+                 exporter: Optional[DevDocumentExporterAgent] = None,
+                 reviewer: Optional[DevPlanReviewerAgent] = None):
 
         self.name = "项目分解工作流"
         self.extractor = extractor or SoftwareUnitExtractorAgent()
@@ -32,6 +34,7 @@ class ProjectDevelopmentWorkflow:
         self.orchestrator = orchestrator or ConcurrencyOrchestratorAgent()
         self.plan_generator = plan_generator or DevPlanGeneratorAgent()
         self.exporter = exporter or DevDocumentExporterAgent()
+        self.reviewer = reviewer or DevPlanReviewerAgent()
 
     async def execute(self, architecture_analysis: Dict[str, Any], requirements: Dict[str, Any] = None, output_dir: str = "output") -> Dict[str, Any]:
         logger.info("开始执行项目分解工作流")
@@ -89,10 +92,26 @@ class ProjectDevelopmentWorkflow:
             concurrency = await self.orchestrator.plan_batches(packages, units)
             result["steps"]["concurrency"] = {"status": "completed", **concurrency}
 
-            dev_plans = await self.plan_generator.generate(packages)
+            dev_plans = await self.plan_generator.generate(packages, requirements)
             result["steps"]["dev_plan"] = {"status": "completed", "count": len(dev_plans)}
 
+            # 执行计划评审
+            review_result = await self.reviewer.review(packages, dev_plans, requirements)
+            result["steps"]["review"] = {"status": "completed", "score": review_result.get("score"), "result": review_result}
+            
+            if review_result.get("status") == "failed":
+                logger.warning(f"开发计划评审未通过: {review_result.get('issues')}")
+                # 可选：决定是否阻断流程，这里仅警告
+            
             docs = await self.exporter.export(units, packages, coverage, concurrency, dev_plans)
+            
+            # 将评审结果附加到文档中
+            if review_result:
+                docs["development_overview_md"] += f"\n\n## 计划评审报告\n- 得分: {review_result.get('score')}\n- 结论: {review_result.get('summary')}\n"
+                if review_result.get("issues"):
+                    docs["development_overview_md"] += "- 发现问题:\n" + "\n".join([f"  - {i}" for i in review_result.get("issues", [])]) + "\n"
+                if review_result.get("suggestions"):
+                    docs["development_overview_md"] += "- 改进建议:\n" + "\n".join([f"  - {s}" for s in review_result.get("suggestions", [])])
 
             final = {
                 "software_units": units,
@@ -100,6 +119,7 @@ class ProjectDevelopmentWorkflow:
                 "coverage_report": coverage,
                 "concurrency_plan": concurrency,
                 "dev_plans": dev_plans,
+                "review_report": review_result,
                 "documents": docs
             }
             result["final_result"] = final

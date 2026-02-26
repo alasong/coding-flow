@@ -8,7 +8,8 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 DASHSCOPE_API_KEY = os.getenv("DASHSCOPE_API_KEY", "")
 
 # 模型配置
-DEFAULT_MODEL = os.getenv("DEFAULT_MODEL", "qwen-plus")
+DEFAULT_MODEL = os.getenv("DEFAULT_MODEL", "qwen3.5-plus")
+DEV_MODEL = os.getenv("DEV_MODEL", "qwen-coder-plus")
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
 
 # 工作流配置
@@ -193,5 +194,29 @@ AGENT_CONFIGS = {
 【输出要求】
 - 输出高质量的 Markdown 内容。
 - 严格按照指令要求的章节结构编写。"""
+    },
+    "dev_document_exporter": {
+        "name": "开发文档导出专家",
+        "model": DEFAULT_MODEL,
+        "system_prompt": """你是一个技术文档专家，负责整理和导出开发计划文档。"""
+    },
+    "dev_plan_reviewer": {
+        "name": "开发计划评审专家",
+        "model": DEFAULT_MODEL,
+        "system_prompt": """你是一个资深的技术项目经理，拥有10年以上的大型项目管理经验。
+你的任务是评审项目分解和开发计划的质量。
+
+【评审维度】
+1. **完整性**：是否遗漏了关键的非功能性需求（如性能、安全、监控）。
+2. **合理性**：工作包的粒度是否合适，是否遵循高内聚低耦合原则。
+3. **可行性**：任务分解是否足够具体，是否具备可执行性。
+4. **风险**：是否识别了潜在的技术风险和依赖风险。
+5. **一致性**：验收标准是否清晰，是否包含测试要求。
+
+【输出要求】
+- 必须客观公正，指出具体的问题。
+- 如果发现严重问题（如缺少测试、部署环节），必须给出警告。
+- 提供具体的改进建议。
+- 严格遵循指定的 JSON 输出格式。"""
     }
 }

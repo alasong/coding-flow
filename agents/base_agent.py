@@ -10,22 +10,24 @@ logger = logging.getLogger(__name__)
 class BaseAgent(AgentBase):
     """Agent基类 - 所有Agent的抽象基类"""
     
-    def __init__(self, name: str, model_config_name: str, **kwargs):
+    def __init__(self, name: str, model_config_name: str, model_name: str = None, **kwargs):
         """
         初始化Agent基类
         
         Args:
             name: Agent名称
             model_config_name: 模型配置名称
+            model_name: 指定使用的模型名称，如果为None则使用默认模型
         """
         super().__init__()
         self.name = name
         self.model_config_name = model_config_name
+        self.target_model_name = model_name or DEFAULT_MODEL
         self.created_at = datetime.now()
         self.execution_count = 0
         self.model = self._init_model()
         
-        logger.info(f"初始化Agent: {self.name}")
+        logger.info(f"初始化Agent: {self.name} (Model: {self.target_model_name})")
     
     def _init_model(self):
         """初始化模型"""
@@ -36,20 +38,20 @@ class BaseAgent(AgentBase):
                 if DASHSCOPE_API_KEY:
                     from agentscope.model import DashScopeChatModel
                     model = DashScopeChatModel(
-                        model_name="qwen-turbo",
+                        model_name=self.target_model_name,
                         api_key=DASHSCOPE_API_KEY,
                         generate_kwargs={"temperature": 0.7, "max_tokens": 2000}
                     )
-                    logger.info(f"[{self.name}] 成功初始化DashScope模型: qwen-turbo")
+                    logger.info(f"[{self.name}] 成功初始化DashScope模型: {self.target_model_name}")
                     return model
                 else:
                     from agentscope.model import OpenAIChatModel
                     model = OpenAIChatModel(
-                        model_name=DEFAULT_MODEL,
+                        model_name=self.target_model_name,
                         api_key=OPENAI_API_KEY,
                         generate_kwargs={"temperature": 0.7, "max_tokens": 2000}
                     )
-                    logger.info(f"[{self.name}] 成功初始化OpenAI模型: {DEFAULT_MODEL}")
+                    logger.info(f"[{self.name}] 成功初始化OpenAI模型: {self.target_model_name}")
                     return model
                 
             except Exception as e:
