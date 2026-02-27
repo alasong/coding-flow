@@ -16,98 +16,174 @@ class DevPlanGeneratorAgent(BaseAgent):
         if not getattr(self, "model", None):
             return await self.generate_offline(work_packages)
 
-        # 使用 LLM 生成更详细的计划
+        # 分批生成，每批 5 个
+        CHUNK_SIZE = 5
+        chunks = [work_packages[i:i + CHUNK_SIZE] for i in range(0, len(work_packages), CHUNK_SIZE)]
+        
+        all_plans = []
+        
+        for i, chunk in enumerate(chunks):
+            logger.info(f"[{self.name}] 正在生成开发计划分块 {i+1}/{len(chunks)}...")
+            try:
+                chunk_plans = await self._generate_chunk(chunk, requirements)
+                all_plans.extend(chunk_plans)
+            except Exception as e:
+                logger.error(f"[{self.name}] 分块 {i+1} 生成失败: {e}")
+                # 失败则使用离线降级
+                offline_plans = await self.generate_offline(chunk)
+                all_plans.extend(offline_plans)
+        
+        logger.info(f"[{self.name}] 生成开发计划总数: {len(all_plans)}")
+        return all_plans
+
+    async def _generate_chunk(self, chunk: List[Dict[str, Any]], requirements: Dict[str, Any]) -> List[Dict[str, Any]]:
+        # 使用 LLM 生成更详细的计划 (Markdown 模式)
         prompt = f"""
         作为开发计划生成专家，请根据以下工作包列表，生成详细的开发计划。
         
-        【项目需求】
-        {json.dumps(requirements, ensure_ascii=False, indent=2) if requirements else "无额外需求"}
+        【项目需求摘要】
+        {json.dumps(requirements, ensure_ascii=False, indent=2)[:500] if requirements else "无额外需求"}
 
-        【工作包列表】
-        {json.dumps(work_packages, ensure_ascii=False, indent=2)}
+        【工作包列表 (本批次)】
+        {json.dumps(chunk, ensure_ascii=False, indent=2)}
         
-        请为每个工作包生成以下信息，并根据 **tags** 类型智能调整任务内容：
+        请为每个工作包生成详细任务，并严格遵循以下规则：
         
-        1. **基础设施包 (tags: infrastructure)**:
-           - 必须包含 Dockerfile/docker-compose 编写。
-           - 必须包含 CI/CD 流水线配置。
-           - 必须包含公共库 (Logger, ErrorHandler) 开发。
-           
-        2. **数据库包 (tags: db)**:
-           - 必须包含 Schema 设计与 SQL 编写。
-           - 必须包含 Migration 脚本开发。
-           - **不要生成单元测试任务**，改为“数据迁移测试”。
-           
-        3. **API/后端包 (tags: api/component)**:
-           - 必须包含接口编码。
-           - 必须包含单元测试开发 (Unit Tests)。
-           - 必须包含 API 文档编写 (Swagger/OpenAPI)。
-           - **不要生成集成测试脚本开发** (已由专用测试包负责)。
-           
-        4. **前端包 (tags: frontend)**:
-           - 必须包含组件编码。
-           - 必须包含 UI/交互测试。
-           
-        5. **测试包 (tags: testing)**:
-           - 必须包含编写集成测试套件。
-           - 必须包含编写 E2E 测试脚本。
-           - 必须包含性能测试与安全扫描。
-           
-        6. **交付/验收包 (tags: delivery/acceptance)**:
-           - 必须包含 Staging 环境部署。
-           - 必须包含用户验收测试 (UAT) 支持。
-           - 必须包含用户手册与运维文档移交。
-           - 必须包含项目验收报告编写。
+        1. **基础设施包 (tags: infrastructure)**: 包含 Dockerfile, CI/CD, 公共库。
+        2. **数据库包 (tags: db)**: 包含 Schema, Migration (无单元测试)。
+        3. **API/后端包 (tags: api/component)**: 包含 接口编码, 单元测试, API文档。
+        4. **前端包 (tags: frontend)**: 包含 组件编码, UI测试。
+        5. **质量/测试/交付包**: 包含相应的验收和验证任务。
         
-        请返回 JSON 格式的列表，每个元素包含：
-        - package_id: 对应的工作包ID
-        - tasks: [str] 任务列表
-        - estimate_points: int 预估点数
-        - risk_level: str 风险等级
-        - risk_reason: str 风险原因
-        - acceptance_criteria: [str] 验收标准 (需包含测试覆盖率或通过率)
+        【输出要求】
+        请返回 **Markdown 列表** 格式。每个工作包一项，格式如下：
+        
+        ## <package_id>
+        - tasks:
+          - <task1>
+          - <task2>
+        - estimate_points: <int>
+        - risk_level: <str>
+        - risk_reason: <str>
+        - acceptance_criteria:
+          - <criteria1>
+          - <criteria2>
+        
+        请确保包含所有工作包。
         """
         
-        try:
-            response = await self.model([{"role": "user", "content": prompt}])
-            content = await self._process_model_response(response)
-            
-            # 使用基类的 JSON 提取能力
-            if hasattr(self, '_extract_json'):
-                plans = self._extract_json(content, expected_type=list)
-            else:
-                import re
-                code_block_match = re.search(r'```json\s*([\s\S]*?)\s*```', content)
-                if code_block_match:
-                    plans = json.loads(code_block_match.group(1))
-                else:
-                    plans = json.loads(content)
-            
-            if not plans:
-                raise ValueError("生成的计划为空或解析失败")
+        # 使用带重试机制的调用
+        response = await self.call_llm_with_retry([{"role": "user", "content": prompt}])
+        content = await self._process_model_response(response)
+        
+        # 解析 Markdown
+        plans = self._extract_markdown(content, chunk)
+        
+        if not plans:
+            raise ValueError("生成的计划为空或解析失败")
 
-            logger.info(f"[{self.name}] 生成开发计划 {len(plans)} 项")
-            return plans
-            
-        except Exception as e:
-            logger.error(f"[{self.name}] 开发计划生成失败: {e}")
-            # 失败回退
-            return await self.generate_offline(work_packages)
+        return plans
 
-    def _extract_json(self, content: str, expected_type=dict):
-        """提取并解析JSON (增强版)"""
+    def _extract_markdown(self, content: str, work_packages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """提取并解析 Markdown 列表"""
+        plans = []
+        current_plan = {}
+        
+        # 预处理：按行分割
+        lines = content.split('\n')
+        
         import re
-        try:
-            # 移除 Markdown 代码块标记
-            code_block_match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', content)
-            if code_block_match:
-                content = code_block_match.group(1)
+        package_ids = set(p['id'] for p in work_packages)
+        
+        for line in lines:
+            line = line.strip()
+            if not line: continue
             
-            # 尝试解析
-            return json.loads(content)
-        except json.JSONDecodeError:
-            logger.warning(f"[{self.name}] JSON解析失败")
-            return None
+            # 匹配包 ID 标题 (## WP-001)
+            header_match = re.match(r'^##\s*(WP-[\w-]+)', line)
+            if header_match:
+                # 保存上一个
+                if current_plan and "package_id" in current_plan:
+                    plans.append(current_plan)
+                
+                pkg_id = header_match.group(1)
+                if pkg_id in package_ids:
+                    current_plan = {"package_id": pkg_id}
+                else:
+                    current_plan = {} # 忽略未知ID
+                continue
+            
+            if not current_plan: continue
+            
+            # 解析属性
+            if line.startswith("- tasks:"):
+                current_plan["tasks"] = []
+            elif line.startswith("- acceptance_criteria:"):
+                current_plan["acceptance_criteria"] = []
+            elif line.startswith("- estimate_points:"):
+                val = line.split(":", 1)[1].strip()
+                current_plan["estimate_points"] = int(val) if val.isdigit() else 1
+            elif line.startswith("- risk_level:"):
+                current_plan["risk_level"] = line.split(":", 1)[1].strip()
+            elif line.startswith("- risk_reason:"):
+                current_plan["risk_reason"] = line.split(":", 1)[1].strip()
+            
+            # 解析列表项
+            elif line.startswith("- ") or line.startswith("* "):
+                item = line[2:].strip()
+                # 确定归属
+                # 简单起见，如果当前没有在 tasks 或 criteria 块中，忽略
+                # 但 Markdown 解析比较麻烦，我们用更鲁棒的方式：
+                # 假设任务列表在 estimate 之前，criteria 在最后
+                # 或者我们用更简单的正则提取块
+                pass 
+        
+        # 上述逐行解析太脆弱，改用正则块提取
+        plans = []
+        blocks = re.split(r'^##\s+', content, flags=re.MULTILINE)
+        
+        for block in blocks:
+            if not block.strip(): continue
+            
+            lines = block.strip().split('\n')
+            pkg_id_match = re.match(r'(WP-[\w-]+)', lines[0])
+            if not pkg_id_match: continue
+            
+            pkg_id = pkg_id_match.group(1)
+            if pkg_id not in package_ids: continue
+            
+            plan = {"package_id": pkg_id}
+            
+            # 提取字段
+            # Tasks
+            tasks_match = re.search(r'- tasks:\s*((?:  - .+\n?)+)', block)
+            if tasks_match:
+                tasks_raw = tasks_match.group(1)
+                plan["tasks"] = [t.strip()[2:].strip() for t in tasks_raw.strip().split('\n') if t.strip().startswith("- ")]
+            
+            # Acceptance Criteria
+            ac_match = re.search(r'- acceptance_criteria:\s*((?:  - .+\n?)+)', block)
+            if ac_match:
+                ac_raw = ac_match.group(1)
+                plan["acceptance_criteria"] = [t.strip()[2:].strip() for t in ac_raw.strip().split('\n') if t.strip().startswith("- ")]
+            
+            # Others
+            ep_match = re.search(r'- estimate_points:\s*(\d+)', block)
+            if ep_match: plan["estimate_points"] = int(ep_match.group(1))
+            
+            rl_match = re.search(r'- risk_level:\s*(.+)', block)
+            if rl_match: plan["risk_level"] = rl_match.group(1).strip()
+            
+            rr_match = re.search(r'- risk_reason:\s*(.+)', block)
+            if rr_match: plan["risk_reason"] = rr_match.group(1).strip()
+            
+            # 默认值填充
+            if "tasks" not in plan: plan["tasks"] = ["任务详情生成失败"]
+            if "estimate_points" not in plan: plan["estimate_points"] = 1
+            
+            plans.append(plan)
+            
+        return plans
 
 
 
@@ -137,6 +213,13 @@ class DevPlanGeneratorAgent(BaseAgent):
                     "执行并支持 UAT",
                     "整理并移交文档",
                     "完成验收确认"
+                ]
+            elif "quality" in tags:
+                tasks = [
+                    "定义质量门禁与验收标准",
+                    "梳理风险清单与收敛动作",
+                    "组织回归验证",
+                    "输出质量收敛结论"
                 ]
             elif "db" in tags:
                 tasks = [

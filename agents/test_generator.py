@@ -45,10 +45,29 @@ class TestGeneratorAgent(BaseAgent):
            - 使用 TestClient(app)
            - 覆盖 get_db 依赖 (app.dependency_overrides)
         4. 假设 app 在 app.main 模块，get_db 在 app.database 模块，Base 在 app.database 模块。
+        
+        **特别注意**：
+        - 必须先导入 app 对象：`from app.main import app`
+        - 如果 `app/main.py` 中没有定义 app 变量，或者路径不对，测试将无法运行。请确保导入路径正确。
         """
         # 优先生成 conftest
         await self._generate_file(conftest_prompt, conftest_path, generated_tests)
         
+        # 扫描服务类名映射，辅助测试生成
+        service_class_map = {}
+        services_dir = os.path.join(base, "app", "services")
+        if os.path.exists(services_dir):
+            for f in os.listdir(services_dir):
+                if f.endswith(".py") and f != "__init__.py":
+                    try:
+                        with open(os.path.join(services_dir, f), "r", encoding="utf-8") as pyf:
+                            content = pyf.read()
+                            import re
+                            classes = re.findall(r'^class\s+(\w+)', content, re.MULTILINE)
+                            if classes:
+                                service_class_map[f[:-3]] = classes[0]
+                    except: pass
+
         # 1. 生成单元测试 (Unit Tests)
         testable_units = [u for u in software_units if u.get("type") in ["api", "component", "db"]]
         
@@ -64,6 +83,9 @@ class TestGeneratorAgent(BaseAgent):
             【项目现有文件结构】
             {json.dumps(project_structure, ensure_ascii=False, indent=2)}
             
+            【已知服务类名映射】
+            {json.dumps(service_class_map, ensure_ascii=False, indent=2)}
+            
             【严格约束】
             1. 必须输出纯 Python 代码，严禁包含任何 Markdown 标记（如 ```python）、中文解释或注释。
             2. 严禁使用 "your_module", "your_application" 等占位符。必须根据【项目现有文件结构】推断正确的导入路径。
@@ -71,7 +93,8 @@ class TestGeneratorAgent(BaseAgent):
             3. 对于 API 测试，使用 `fastapi.testclient.TestClient`。
             4. 对于 DB 测试，使用 `sqlite:///:memory:` 进行 Mock。
             5. 如果无法确定导入路径，请假设代码在 `app` 包下。
-            6. 确保导入的类和函数在项目中真实存在。
+            6. 确保导入的类和函数在项目中真实存在，使用提供的【已知服务类名映射】。
+               - 例如：如果要测试 `user_management_service`，且映射中显示类名为 `UserManagerService`，则必须 `from app.services.user_management_service import UserManagerService`。
             """
             
             safe_name = unit['name'].replace(" ", "_").replace("/", "_").replace("{", "").replace("}", "").lower()

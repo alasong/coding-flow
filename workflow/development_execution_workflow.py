@@ -228,46 +228,86 @@ class DevelopmentExecutionWorkflow:
             return result
 
     async def _auto_repair(self, output_dir: str, verify: Dict[str, Any]) -> Dict[str, Any]:
-        max_retries = DEVELOPMENT_EXECUTION_CONFIG.get("max_repair_retries", 3)
-        max_repair_files = DEVELOPMENT_EXECUTION_CONFIG.get("max_repair_files", 8)
+        """
+        事务性自动修复 (Check-Fix-Verify-Rollback Loop)
+        """
+        max_retries = DEVELOPMENT_EXECUTION_CONFIG.get("max_repair_retries", 5) # 增加重试次数
+        max_repair_files = DEVELOPMENT_EXECUTION_CONFIG.get("max_repair_files", 3) # 减少每次修复文件数，聚焦核心错误
+        
         retry_count = 0
-        last_error_signature = None
         repaired_files_history = set()
-
-        while not verify.get("tests") and retry_count < max_retries:
+        
+        # 初始状态
+        current_verify = verify
+        initial_failed_count = self._count_failed_tests(current_verify)
+        
+        while not current_verify.get("tests") and retry_count < max_retries:
             retry_count += 1
-            logger.warning(f"测试验证失败，尝试自动修复 ({retry_count}/{max_retries})...")
+            logger.warning(f"测试验证失败 (Failed: {initial_failed_count})，尝试自动修复 ({retry_count}/{max_retries})...")
 
-            # 提取错误日志
-            error_log = verify.get("output", "")
-            error_signature = (error_log or "").strip()
-            if error_signature and error_signature == last_error_signature:
-                logger.warning("错误日志与上一轮一致，停止重复修复以节省资源")
+            # 1. 提取错误日志
+            error_log = current_verify.get("output", "")
+            if not error_log:
+                logger.warning("无错误日志，跳过修复")
                 break
-            last_error_signature = error_signature
 
             if hasattr(self.code_gen, "repair"):
+                # 2. 执行修复
                 repair_result = await self.code_gen.repair(
                     output_dir,
                     error_log,
                     skip_files=repaired_files_history,
                     max_files=max_repair_files
                 )
+                
                 if not repair_result.get("repaired"):
                     reason = repair_result.get("reason", "unknown")
                     logger.warning(f"自动修复未产生有效变更，停止重试（原因: {reason}）")
                     break
-                repaired_files_history.update(repair_result.get("files", []))
-                # 提交修复后的代码
-                await self._git_commit(output_dir, f"Fix: Auto-repair attempt {retry_count}")
+                
+                changed_files = repair_result.get("files", [])
+                repaired_files_history.update(changed_files)
+                
+                # 3. 提交修复
+                commit_msg = f"Fix: Auto-repair attempt {retry_count} (files: {len(changed_files)})"
+                await self._git_commit(output_dir, commit_msg)
 
-                # 重新运行测试
-                verify = await self.verifier.verify(output_dir)
+                # 4. 重新验证 (Verify)
+                new_verify = await self.verifier.verify(output_dir)
+                new_failed_count = self._count_failed_tests(new_verify)
+                
+                # 5. 效果评估与决策 (Check & Rollback)
+                # 计算修复成功率指标
+                # 如果 failed_count 减少，说明修复有效 -> Keep
+                # 如果 failed_count 增加或不变，且引入了新的 SyntaxError -> Rollback?
+                # 简单策略：只要测试没全过，就继续；如果变得更糟，打印警告 (暂时不自动回滚，防止死循环)
+                
+                if new_failed_count < initial_failed_count:
+                    logger.info(f"修复有效！失败用例减少: {initial_failed_count} -> {new_failed_count}")
+                    initial_failed_count = new_failed_count
+                    current_verify = new_verify
+                else:
+                    logger.warning(f"修复效果不佳 (Failed: {initial_failed_count} -> {new_failed_count})，继续尝试...")
+                    current_verify = new_verify
+                    
             else:
                 logger.warning("CodeGeneratorAgent 不支持自动修复，跳过重试")
                 break
 
-        return verify
+        return current_verify
+
+    def _count_failed_tests(self, verify_result: Dict[str, Any]) -> int:
+        """从验证结果中解析失败用例数量"""
+        # 简单解析 pytest 输出摘要，例如 "=== 1 failed, 10 passed in 0.12s ==="
+        output = verify_result.get("output", "")
+        import re
+        match = re.search(r'(\d+) failed', output)
+        if match:
+            return int(match.group(1))
+        # 如果是其他错误导致测试没跑完 (如 SyntaxError)，视为严重错误
+        if "SyntaxError" in output or "ImportError" in output:
+            return 9999
+        return 0
 
     def _save(self, output_dir: str, workflow_result: Dict[str, Any]) -> None:
         import os

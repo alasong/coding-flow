@@ -31,7 +31,8 @@ class WorkPackagePlannerAgent:
                     packages.append(self._build_unit_package(u, key, pkg_id_counter))
                     pkg_id_counter += 1
 
-        logger.info(f"[{self.name}] 规划生成工作包 {len(packages)} 个")
+        base_count = len(packages)
+        logger.info(f"[{self.name}] 规划生成工作包 {base_count} 个(单元包)")
 
         infra_packages = self._build_infra_packages()
         quality_packages = self._build_quality_packages(packages)
@@ -39,6 +40,7 @@ class WorkPackagePlannerAgent:
         delivery_packages = self._build_delivery_packages()
 
         packages = infra_packages + packages + quality_packages + test_packages + delivery_packages
+        logger.info(f"[{self.name}] 工作包总数 {len(packages)} 个(含基础设施/质量收敛/测试/交付)")
         packages = self._assign_dependencies(packages, software_units)
 
         return packages
@@ -57,6 +59,7 @@ class WorkPackagePlannerAgent:
             "parallelizable": True,
             "tags": [unit.get("type")]
         }
+
 
     def _build_infra_packages(self) -> List[Dict[str, Any]]:
         return [
@@ -100,6 +103,39 @@ class WorkPackagePlannerAgent:
                 "tags": ["infrastructure", "common"]
             }
         ]
+
+    def _build_quality_packages(self, unit_packages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        def collect_ids(tag: str) -> List[str]:
+            return [p["id"] for p in unit_packages if tag in p.get("tags", [])]
+
+        quality_defs = [
+            ("WP-QUALITY-001", "quality/db::Convergence", "数据库质量收敛", "db"),
+            ("WP-QUALITY-002", "quality/component::Convergence", "组件质量收敛", "component"),
+            ("WP-QUALITY-003", "quality/api::Convergence", "接口质量收敛", "api"),
+            ("WP-QUALITY-004", "quality/frontend::Convergence", "前端质量收敛", "frontend")
+        ]
+
+        packages: List[Dict[str, Any]] = []
+        for pkg_id, name, objective, scope in quality_defs:
+            depends_on = collect_ids(scope)
+            if not depends_on:
+                continue
+            packages.append({
+                "id": pkg_id,
+                "name": name,
+                "objective": objective,
+                "acceptance_criteria": ["质量标准达成", "风险收敛完成"],
+                "software_unit_ids": [],
+                "subtask_ids": [],
+                "assignees": [],
+                "status": "planned",
+                "priority": "high",
+                "parallelizable": False,
+                "tags": ["quality"],
+                "quality_scope": scope,
+                "depends_on": depends_on
+            })
+        return packages
 
     def _build_test_packages(self) -> List[Dict[str, Any]]:
         return [
@@ -215,14 +251,17 @@ class WorkPackagePlannerAgent:
         for p in packages:
             deps = set(p.get("depends_on", []))
             stage = self._stage_for_pkg(p)
-            if stage > 0:
-                if stage == 5:
-                    deps.update(stage_map.get(3, []))
+            tags = set(p.get("tags", []))
+            if "quality" in tags:
+                pass
+            elif stage == 6:
+                deps.update(stage_map.get(5, []))
+                if not stage_map.get(5):
                     deps.update(stage_map.get(4, []))
-                elif stage == 6:
-                    deps.update(stage_map.get(5, []))
-                else:
-                    deps.update(stage_map.get(stage - 1, []))
+            elif stage == 7:
+                deps.update(stage_map.get(6, []))
+            elif stage > 0:
+                deps.update(stage_map.get(stage - 1, []))
 
             for uid in p.get("software_unit_ids", []):
                 unit = unit_index.get(uid, {})
@@ -246,9 +285,11 @@ class WorkPackagePlannerAgent:
             return 3
         if "frontend" in tags:
             return 4
-        if "testing" in tags:
+        if "quality" in tags:
             return 5
-        if "delivery" in tags or "acceptance" in tags:
+        if "testing" in tags:
             return 6
+        if "delivery" in tags or "acceptance" in tags:
+            return 7
         return 3
 

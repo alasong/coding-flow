@@ -104,7 +104,11 @@ class ProjectDevelopmentWorkflow:
             
             if review_result.get("status") == "failed":
                 logger.warning(f"开发计划评审未通过: {review_result.get('issues')}")
-                # 可选：决定是否阻断流程，这里仅警告
+                result["status"] = "failed"
+                result["error"] = "开发计划评审未通过，需修复后重新执行"
+                result["end_time"] = datetime.now().isoformat()
+                self._save(output_dir, result)
+                return result
             
             docs = await self.exporter.export(units, packages, coverage, concurrency, dev_plans)
             
