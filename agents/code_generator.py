@@ -144,14 +144,21 @@ class CodeGeneratorAgent(BaseAgent):
 
         return {"generated_files": generated_files}
         
-    async def repair(self, output_dir: str, error_log: str, skip_files: set[str] | None = None, max_files: int | None = None) -> Dict[str, Any]:
+    async def repair(self, output_dir: str, error_log: str, skip_files: set[str] | None = None, max_files: int | None = None, architecture_design: Dict[str, Any] | None = None) -> Dict[str, Any]:
         """
-        根据错误日志修复代码（深度分析 + 精准修复）
+        根据错误日志修复代码（深度分析 + 精准修复 + 架构感知）
         """
         import os
         import asyncio
+        import json
         
-        base = os.path.join(output_dir, "project_code")
+        # 兼容性处理：如果 output_dir 下有 project_code 则使用之，否则假设 output_dir 本身就是代码根目录
+        project_code_dir = os.path.join(output_dir, "project_code")
+        if os.path.exists(project_code_dir):
+            base = project_code_dir
+        else:
+            base = output_dir
+            
         skip_files = skip_files or set()
         
         # 1. 深度分析错误日志
@@ -201,6 +208,25 @@ class CodeGeneratorAgent(BaseAgent):
         repaired_files = []
         tasks = []
         
+        # 准备架构上下文摘要 (如果有)
+        arch_context = ""
+        if architecture_design:
+            try:
+                # 提取关键组件信息
+                components = architecture_design.get("final_result", {}).get("architecture_design", {}).get("system_architecture", {}).get("system_components", [])
+                if not components:
+                    # 尝试其他结构
+                    components = architecture_design.get("system_components", [])
+                
+                if components:
+                    arch_context = "【系统组件参考】\n"
+                    for comp in components:
+                        arch_context += f"- {comp.get('name')}: {comp.get('description')}\n"
+                        if 'responsibilities' in comp:
+                            arch_context += f"  职责: {', '.join(comp['responsibilities'])}\n"
+            except Exception as e:
+                print(f"提取架构上下文失败: {e}")
+
         for case in files_to_fix:
             rel_path = case['file_path']
             full_path = os.path.join(base, rel_path)
@@ -217,8 +243,22 @@ class CodeGeneratorAgent(BaseAgent):
                         with open(full_rel_path, "r") as rf:
                             context_code += f"\n# 相关文件: {rel_rel_path}\n{rf.read()[:1000]}\n..."
             
+            # 智能提取特定组件的详细设计
+            specific_comp_context = ""
+            if architecture_design:
+                # 简单的名称匹配
+                filename = os.path.basename(rel_path).lower()
+                for comp in components:
+                    comp_name = comp.get('name', '').lower().replace(" ", "")
+                    if comp_name in filename or filename.replace("test_", "").replace("unit_", "").startswith(comp_name):
+                         specific_comp_context = f"【当前组件设计详情】\n{json.dumps(comp, ensure_ascii=False, indent=2)}\n"
+                         break
+
             prompt = f"""
-            以下代码在运行测试时报错，请根据错误日志进行精准修复。
+            以下代码在运行测试时报错，请根据错误日志和架构设计进行**精准修复**。
+            
+            {arch_context}
+            {specific_comp_context}
             
             【错误类型】 {case['error_type']}
             【错误位置】 {rel_path}:{case.get('line_no', '?')}
@@ -233,12 +273,15 @@ class CodeGeneratorAgent(BaseAgent):
             
             {context_code}
             
-            【要求】
-            1. 仅返回修复后的完整代码。
-            2. 针对 {case['error_type']} 进行针对性修复。
-               - 如果是 ImportError，检查导入路径和类名。
-               - 如果是 AssertionError，检查逻辑实现或测试断言。
-            3. 严禁使用 Markdown 标记。
+            【修复原则】
+            1. **架构一致性**：必须遵循上述架构设计。如果代码实现与架构（如接口定义、依赖关系）不符，请修正代码以匹配架构。
+            2. **Mock 优先**：如果是单元测试报错，优先检查 Mock 对象是否正确模拟了依赖组件的行为。不要试图去连接真实数据库或外部服务。
+            3. **最小修改**：仅修复错误，不要重写无关逻辑。
+            4. **完整性**：仅返回修复后的完整代码，不要包含 Markdown 标记。
+            
+            【针对性策略】
+            - ImportError: 检查导入路径是否正确，或者被导入的模块是否确实存在定义。如果缺失定义，可能需要你根据组件设计来补全桩代码 (Stub)。
+            - AssertionError: 检查业务逻辑是否满足测试期望。如果是测试期望有误（如与架构不符），请修正测试代码。
             """
             
             tasks.append(self._generate_file(prompt, full_path, repaired_files))

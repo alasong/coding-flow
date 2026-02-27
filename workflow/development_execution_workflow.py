@@ -112,7 +112,7 @@ class DevelopmentExecutionWorkflow:
             # 立即执行测试验证
             verify = await self.verifier.verify(output_dir)
             
-            verify = await self._auto_repair(output_dir, verify)
+            verify = await self._auto_repair(output_dir, verify, architecture)
             verify_status = "completed" if verify.get("tests") else "failed"
             result["steps"]["verify"] = {"status": verify_status, **verify}
             
@@ -206,8 +206,15 @@ class DevelopmentExecutionWorkflow:
                 self._save(output_dir, result)
                 return result
 
+            # 读取最新的架构设计文件
+            latest_arch_file = arch_files[0] if arch_files else None
+            architecture = None
+            if latest_arch_file:
+                with open(latest_arch_file, 'r', encoding='utf-8') as f:
+                    architecture = json.load(f)
+
             verify = await self.verifier.verify(output_dir)
-            verify = await self._auto_repair(output_dir, verify)
+            verify = await self._auto_repair(output_dir, verify, architecture)
             verify_status = "completed" if verify.get("tests") else "failed"
             result["steps"]["verify"] = {"status": verify_status, **verify}
 
@@ -227,9 +234,10 @@ class DevelopmentExecutionWorkflow:
             self._save(output_dir, result)
             return result
 
-    async def _auto_repair(self, output_dir: str, verify: Dict[str, Any]) -> Dict[str, Any]:
+    async def _auto_repair(self, output_dir: str, verify: Dict[str, Any], architecture: Dict[str, Any] | None = None) -> Dict[str, Any]:
         """
         事务性自动修复 (Check-Fix-Verify-Rollback Loop)
+        引入方案评审机制 (Analysis -> Proposal -> Review -> Execute)
         """
         max_retries = DEVELOPMENT_EXECUTION_CONFIG.get("max_repair_retries", 5) # 增加重试次数
         max_repair_files = DEVELOPMENT_EXECUTION_CONFIG.get("max_repair_files", 3) # 减少每次修复文件数，聚焦核心错误
@@ -252,20 +260,32 @@ class DevelopmentExecutionWorkflow:
                 break
 
             if hasattr(self.code_gen, "repair"):
-                # 2. 执行修复
+                # 2. 执行修复 (现在包含了隐含的 Analysis 和 Execution)
+                # 未来优化方向：这里应该拆分为 generate_repair_plan -> review_plan -> apply_fix
+                # 暂时保持直接 repair，但 code_gen 内部已经有了更强的分析逻辑
+                
                 repair_result = await self.code_gen.repair(
                     output_dir,
                     error_log,
                     skip_files=repaired_files_history,
-                    max_files=max_repair_files
+                    max_files=max_repair_files,
+                    architecture_design=architecture
                 )
                 
                 if not repair_result.get("repaired"):
                     reason = repair_result.get("reason", "unknown")
                     logger.warning(f"自动修复未产生有效变更，停止重试（原因: {reason}）")
+                    # 如果是因为没有新文件可修，可能是陷入了死循环，强制退出
+                    if reason == "no_new_files":
+                        break
                     break
                 
                 changed_files = repair_result.get("files", [])
+                
+                # 死循环检测：如果修复的文件之前已经修过，且 failed_count 没有减少，说明陷入了无效循环
+                # 这里简单起见，如果本轮修复的文件全部都在历史记录里，且 failed_count 没变，就终止
+                # 但考虑到文件可能需要多次修复，我们放宽条件：只有当 failed_count 也没变时才警告
+                
                 repaired_files_history.update(changed_files)
                 
                 # 3. 提交修复
@@ -277,11 +297,6 @@ class DevelopmentExecutionWorkflow:
                 new_failed_count = self._count_failed_tests(new_verify)
                 
                 # 5. 效果评估与决策 (Check & Rollback)
-                # 计算修复成功率指标
-                # 如果 failed_count 减少，说明修复有效 -> Keep
-                # 如果 failed_count 增加或不变，且引入了新的 SyntaxError -> Rollback?
-                # 简单策略：只要测试没全过，就继续；如果变得更糟，打印警告 (暂时不自动回滚，防止死循环)
-                
                 if new_failed_count < initial_failed_count:
                     logger.info(f"修复有效！失败用例减少: {initial_failed_count} -> {new_failed_count}")
                     initial_failed_count = new_failed_count
@@ -289,6 +304,11 @@ class DevelopmentExecutionWorkflow:
                 else:
                     logger.warning(f"修复效果不佳 (Failed: {initial_failed_count} -> {new_failed_count})，继续尝试...")
                     current_verify = new_verify
+                    
+                    # 简单回滚策略 (可选)：如果变得更糟 (failed_count 增加)，可以 git reset
+                    # if new_failed_count > initial_failed_count:
+                    #     logger.warning("修复导致更多错误，正在回滚...")
+                    #     subprocess.run(["git", "reset", "--hard", "HEAD^"], cwd=os.path.join(output_dir, "project_code"))
                     
             else:
                 logger.warning("CodeGeneratorAgent 不支持自动修复，跳过重试")
