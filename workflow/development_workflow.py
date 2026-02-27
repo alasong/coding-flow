@@ -11,6 +11,7 @@ from agents.concurrency_orchestrator import ConcurrencyOrchestratorAgent
 from agents.dev_plan_generator import DevPlanGeneratorAgent
 from agents.dev_document_exporter import DevDocumentExporterAgent
 from agents.dev_plan_reviewer import DevPlanReviewerAgent
+from config import DEVELOPMENT_WORKFLOW_CONFIG
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +29,9 @@ class ProjectDevelopmentWorkflow:
 
         self.name = "项目分解工作流"
         self.extractor = extractor or SoftwareUnitExtractorAgent()
-        self.planner = planner or WorkPackagePlannerAgent()
+        self.planner = planner or WorkPackagePlannerAgent(
+            max_units_per_package=DEVELOPMENT_WORKFLOW_CONFIG.get("max_units_per_package", 1)
+        )
         self.matcher = matcher or UnitToWorkPackageMatcherAgent()
         self.auditor = auditor or CoverageAuditorAgent()
         self.orchestrator = orchestrator or ConcurrencyOrchestratorAgent()

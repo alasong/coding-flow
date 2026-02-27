@@ -9,7 +9,7 @@ DASHSCOPE_API_KEY = os.getenv("DASHSCOPE_API_KEY", "")
 
 # 模型配置
 DEFAULT_MODEL = os.getenv("DEFAULT_MODEL", "qwen3.5-plus")
-DEV_MODEL = os.getenv("DEV_MODEL", "qwen-coder-plus")
+DEV_MODEL = os.getenv("DEV_MODEL", "qwen-plus")
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
 
 # 备用模型池 (用于限流时降级)
@@ -59,7 +59,7 @@ MASTER_WORKFLOW_CONFIG = {
 
 # 项目开发工作流配置
 DEVELOPMENT_WORKFLOW_CONFIG = {
-    "max_units_per_package": int(os.getenv("DEV_MAX_UNITS_PER_PACKAGE", "3")),
+    "max_units_per_package": int(os.getenv("DEV_MAX_UNITS_PER_PACKAGE", "1")),
     "require_full_coverage": os.getenv("DEV_REQUIRE_FULL_COVERAGE", "true").lower() == "true",
     "output_formats": ["json", "markdown"],
 }
@@ -69,6 +69,9 @@ DEVELOPMENT_EXECUTION_CONFIG = {
     "language": os.getenv("DEVEXEC_LANGUAGE", "python"),
     "coverage_threshold": float(os.getenv("DEVEXEC_COVERAGE_THRESHOLD", "0.7")),
     "ci_template": os.getenv("DEVEXEC_CI_TEMPLATE", "github_actions"),
+    "max_repair_retries": int(os.getenv("DEVEXEC_MAX_REPAIR_RETRIES", "10")),
+    "max_repair_files": int(os.getenv("DEVEXEC_MAX_REPAIR_FILES", "20")),
+    "fail_on_tests": os.getenv("DEVEXEC_FAIL_ON_TESTS", "true").lower() == "true",
 }
 
 # 部署工作流配置

@@ -15,6 +15,7 @@ from agents.dev_run_verifier import DevRunVerifierAgent
 from agents.frontend_scaffolder import FrontendScaffolderAgent
 from agents.ui_mode_decider import UIModeDeciderAgent
 from agents.cli_scaffolder import CLIScaffolderAgent
+from config import DEVELOPMENT_EXECUTION_CONFIG
 
 logger = logging.getLogger(__name__)
 
@@ -111,29 +112,9 @@ class DevelopmentExecutionWorkflow:
             # 立即执行测试验证
             verify = await self.verifier.verify(output_dir)
             
-            # 自动修复循环 (Auto-Repair Loop)
-            max_retries = 3
-            retry_count = 0
-            
-            while not verify.get("tests") and retry_count < max_retries:
-                retry_count += 1
-                logger.warning(f"测试验证失败，尝试自动修复 ({retry_count}/{max_retries})...")
-                
-                # 提取错误日志
-                error_log = verify.get("output", "")
-                
-                if hasattr(self.code_gen, "repair"):
-                     await self.code_gen.repair(output_dir, error_log)
-                     # 提交修复后的代码
-                     await self._git_commit(output_dir, f"Fix: Auto-repair attempt {retry_count}")
-                     
-                     # 重新运行测试
-                     verify = await self.verifier.verify(output_dir)
-                else:
-                     logger.warning("CodeGeneratorAgent 不支持自动修复，跳过重试")
-                     break
-            
-            result["steps"]["verify"] = {"status": "completed", **verify}
+            verify = await self._auto_repair(output_dir, verify)
+            verify_status = "completed" if verify.get("tests") else "failed"
+            result["steps"]["verify"] = {"status": verify_status, **verify}
             
             # 如果测试失败，尝试修复（可选）
             if not verify.get("tests"):
@@ -160,7 +141,10 @@ class DevelopmentExecutionWorkflow:
                 "security": sec
             }
             result["final_result"] = final
-            result["status"] = "completed"
+            if DEVELOPMENT_EXECUTION_CONFIG.get("fail_on_tests", True) and not verify.get("tests"):
+                result["status"] = "failed"
+            else:
+                result["status"] = "completed"
             result["end_time"] = datetime.now().isoformat()
             self._save(output_dir, result)
             logger.info("项目开发工作流执行完成")
@@ -172,6 +156,118 @@ class DevelopmentExecutionWorkflow:
             result["end_time"] = datetime.now().isoformat()
             self._save(output_dir, result)
             return result
+
+    async def repair_existing(self, output_dir: str, integration_dir: str, development_dir: str) -> Dict[str, Any]:
+        """对已生成项目进行验证与增量修复（依赖交付件必须存在）"""
+        import os
+        import glob
+        result: Dict[str, Any] = {
+            "workflow_name": f"{self.name}-修复模式",
+            "start_time": datetime.now().isoformat(),
+            "status": "in_progress",
+            "steps": {}
+        }
+        try:
+            base = os.path.join(output_dir, "project_code")
+            if not os.path.exists(base):
+                result["status"] = "failed"
+                result["error"] = "project_code 目录不存在，无法进行修复"
+                result["end_time"] = datetime.now().isoformat()
+                self._save(output_dir, result)
+                return result
+
+            req_files = sorted(glob.glob(os.path.join(integration_dir, "requirement_analysis_result_*.json")), reverse=True)
+            arch_files = sorted(glob.glob(os.path.join(integration_dir, "architecture_artifacts_*.json")), reverse=True)
+            dev_files = sorted(glob.glob(os.path.join(development_dir, "development_artifacts_*.json")), reverse=True)
+            if not dev_files:
+                dev_files = sorted(glob.glob(os.path.join(development_dir, "development_workflow_result_*.json")), reverse=True)
+
+            missing = []
+            if not req_files:
+                missing.append("requirement_analysis_result_*.json")
+            if not arch_files:
+                missing.append("architecture_artifacts_*.json")
+            if not dev_files:
+                missing.append("development_artifacts_*.json 或 development_workflow_result_*.json")
+
+            result["steps"]["artifact_check"] = {
+                "status": "completed" if not missing else "failed",
+                "integration_dir": integration_dir,
+                "development_dir": development_dir,
+                "latest_requirement": req_files[0] if req_files else None,
+                "latest_architecture": arch_files[0] if arch_files else None,
+                "latest_development": dev_files[0] if dev_files else None,
+                "missing": missing
+            }
+            if missing:
+                result["status"] = "failed"
+                result["error"] = "缺少修复所需交付件"
+                result["end_time"] = datetime.now().isoformat()
+                self._save(output_dir, result)
+                return result
+
+            verify = await self.verifier.verify(output_dir)
+            verify = await self._auto_repair(output_dir, verify)
+            verify_status = "completed" if verify.get("tests") else "failed"
+            result["steps"]["verify"] = {"status": verify_status, **verify}
+
+            result["final_result"] = {"verify": verify}
+            if DEVELOPMENT_EXECUTION_CONFIG.get("fail_on_tests", True) and not verify.get("tests"):
+                result["status"] = "failed"
+            else:
+                result["status"] = "completed"
+            result["end_time"] = datetime.now().isoformat()
+            self._save(output_dir, result)
+            return result
+        except Exception as e:
+            logger.error(f"项目修复流程执行失败: {e}")
+            result["status"] = "failed"
+            result["error"] = str(e)
+            result["end_time"] = datetime.now().isoformat()
+            self._save(output_dir, result)
+            return result
+
+    async def _auto_repair(self, output_dir: str, verify: Dict[str, Any]) -> Dict[str, Any]:
+        max_retries = DEVELOPMENT_EXECUTION_CONFIG.get("max_repair_retries", 3)
+        max_repair_files = DEVELOPMENT_EXECUTION_CONFIG.get("max_repair_files", 8)
+        retry_count = 0
+        last_error_signature = None
+        repaired_files_history = set()
+
+        while not verify.get("tests") and retry_count < max_retries:
+            retry_count += 1
+            logger.warning(f"测试验证失败，尝试自动修复 ({retry_count}/{max_retries})...")
+
+            # 提取错误日志
+            error_log = verify.get("output", "")
+            error_signature = (error_log or "").strip()
+            if error_signature and error_signature == last_error_signature:
+                logger.warning("错误日志与上一轮一致，停止重复修复以节省资源")
+                break
+            last_error_signature = error_signature
+
+            if hasattr(self.code_gen, "repair"):
+                repair_result = await self.code_gen.repair(
+                    output_dir,
+                    error_log,
+                    skip_files=repaired_files_history,
+                    max_files=max_repair_files
+                )
+                if not repair_result.get("repaired"):
+                    reason = repair_result.get("reason", "unknown")
+                    logger.warning(f"自动修复未产生有效变更，停止重试（原因: {reason}）")
+                    break
+                repaired_files_history.update(repair_result.get("files", []))
+                # 提交修复后的代码
+                await self._git_commit(output_dir, f"Fix: Auto-repair attempt {retry_count}")
+
+                # 重新运行测试
+                verify = await self.verifier.verify(output_dir)
+            else:
+                logger.warning("CodeGeneratorAgent 不支持自动修复，跳过重试")
+                break
+
+        return verify
 
     def _save(self, output_dir: str, workflow_result: Dict[str, Any]) -> None:
         import os

@@ -125,9 +125,9 @@ class CodeGeneratorAgent(BaseAgent):
 
         return {"generated_files": generated_files}
         
-    async def repair(self, output_dir: str, error_log: str) -> Dict[str, Any]:
+    async def repair(self, output_dir: str, error_log: str, skip_files: set[str] | None = None, max_files: int | None = None) -> Dict[str, Any]:
         """
-        根据错误日志修复代码
+        根据错误日志修复代码（增量修复）
         """
         import os
         import re
@@ -138,18 +138,28 @@ class CodeGeneratorAgent(BaseAgent):
         # 常见的 pytest 错误格式: File "/path/to/file.py", line 123
         files_to_fix = set()
         base = os.path.join(output_dir, "project_code")
+        skip_files = skip_files or set()
         
         matches = re.findall(r'File "([^"]+)"', error_log)
+        matches += re.findall(r'([\w./-]+\.py):\d+', error_log)
         for path in matches:
-            if base in path:
+            if not path:
+                continue
+            if os.path.isabs(path) and base in path:
                 rel_path = os.path.relpath(path, base)
-                # 扩大修复范围：修复 app/ 下的代码，也修复 tests/ 下的代码（如果语法错误）
-                if rel_path.startswith("app/") or rel_path.startswith("tests/"):
-                    files_to_fix.add(rel_path)
+            else:
+                # 尝试处理相对路径
+                rel_path = path if path.startswith("app/") or path.startswith("tests/") else None
+            if rel_path and (rel_path.startswith("app/") or rel_path.startswith("tests/")):
+                files_to_fix.add(rel_path)
+        
+        files_to_fix = files_to_fix - skip_files
+        if max_files is not None and max_files > 0:
+            files_to_fix = set(list(files_to_fix)[:max_files])
         
         if not files_to_fix:
             print("未在错误日志中发现可修复的代码文件")
-            return {"repaired": False}
+            return {"repaired": False, "reason": "no_files", "files": []}
             
         print(f"尝试修复文件: {files_to_fix}")
         

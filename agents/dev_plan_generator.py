@@ -14,26 +14,7 @@ class DevPlanGeneratorAgent(BaseAgent):
 
     async def generate(self, work_packages: List[Dict[str, Any]], requirements: Dict[str, Any] = None) -> List[Dict[str, Any]]:
         if not getattr(self, "model", None):
-             # 离线回退逻辑
-            print("DEBUG: Using offline logic")
-            plans: List[Dict[str, Any]] = []
-            for p in work_packages:
-                plan = {
-                    "package_id": p["id"],
-                    "status_machine": ["planned", "in_progress", "review", "testing", "done"],
-                    "acceptance_criteria": p.get("acceptance_criteria", ["功能达成", "测试通过", "无阻断风险"]),
-                    "risk": "low",
-                    "dependencies": [],
-                    "estimate": {
-                        "points": max(1, len(p.get("software_unit_ids", [])))
-                    },
-                    "tasks": [f"实现 {uid}" for uid in p.get("software_unit_ids", [])] + 
-                             [f"编写 {uid} 的单元测试" for uid in p.get("software_unit_ids", [])] +
-                             ["编写集成测试脚本"]
-                }
-                plans.append(plan)
-            logger.info(f"[{self.name}] (离线) 生成开发计划 {len(plans)} 项")
-            return plans
+            return await self.generate_offline(work_packages)
 
         # 使用 LLM 生成更详细的计划
         prompt = f"""
@@ -135,31 +116,57 @@ class DevPlanGeneratorAgent(BaseAgent):
         for p in work_packages:
             tags = p.get("tags", [])
             tasks = []
-            
-            # 根据类型生成任务
+
             if "infrastructure" in tags:
-                tasks = ["编写 Dockerfile", "配置 CI/CD 流水线", "开发公共日志库", "开发异常处理模块"]
+                tasks = [
+                    "初始化仓库与目录结构",
+                    "补齐基础配置与环境变量样例",
+                    "搭建最小可运行框架",
+                    "校验基础启动与构建"
+                ]
             elif "testing" in tags:
-                tasks = ["编写集成测试套件", "编写 E2E 测试脚本", "执行性能测试", "执行安全扫描"]
+                tasks = [
+                    "梳理测试范围与覆盖目标",
+                    "实现测试脚本",
+                    "本地执行并修复失败项",
+                    "输出测试报告"
+                ]
             elif "delivery" in tags or "acceptance" in tags:
-                tasks = ["部署 Staging 环境", "支持用户验收测试(UAT)", "移交用户手册", "编写项目验收报告"]
+                tasks = [
+                    "准备交付环境",
+                    "执行并支持 UAT",
+                    "整理并移交文档",
+                    "完成验收确认"
+                ]
             elif "db" in tags:
-                tasks = [f"设计 {uid} 表结构" for uid in p.get("software_unit_ids", [])] + \
-                        ["编写 Migration 脚本", "执行数据迁移测试"]
+                tasks = [
+                    "设计表结构与字段约束",
+                    "编写建表与索引 SQL",
+                    "编写迁移脚本",
+                    "执行迁移测试"
+                ]
             elif "frontend" in tags:
-                tasks = [f"实现 {uid} 组件" for uid in p.get("software_unit_ids", [])] + \
-                        [f"编写 {uid} UI 测试" for uid in p.get("software_unit_ids", [])]
-            else: # api, component, default
-                tasks = [f"实现 {uid}" for uid in p.get("software_unit_ids", [])] + \
-                        [f"编写 {uid} 的单元测试" for uid in p.get("software_unit_ids", [])] + \
-                        ["编写 API 文档"]
+                tasks = [
+                    "确定页面与组件结构",
+                    "实现核心组件",
+                    "对接接口并完成联调",
+                    "编写 UI/交互测试"
+                ]
+            else:
+                tasks = [
+                    "梳理接口与数据契约",
+                    "实现核心逻辑",
+                    "自测与边界用例校验",
+                    "编写单元测试",
+                    "完善接口文档"
+                ]
 
             plan = {
                 "package_id": p["id"],
                 "status_machine": ["planned", "in_progress", "review", "testing", "done"],
                 "acceptance_criteria": p.get("acceptance_criteria", ["功能达成", "测试通过", "无阻断风险"]),
                 "risk": "low",
-                "dependencies": [],
+                "dependencies": p.get("depends_on", []),
                 "estimate": {
                     "points": max(1, len(p.get("software_unit_ids", [])))
                 },
