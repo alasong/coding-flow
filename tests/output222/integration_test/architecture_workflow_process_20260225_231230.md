@@ -1,0 +1,4 @@
+# 架构工作流过程
+architecture_analysis_round_1: completed
+architecture_validation_round_1: completed
+technical_documentation: completed

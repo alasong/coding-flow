@@ -1,0 +1,165 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Project API",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/v1/users": {
+      "post": {
+        "summary": "POST /api/v1/users",
+        "operationId": "postApiV1Users",
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        }
+      }
+    },
+    "/api/v1/users/{userId}": {
+      "get": {
+        "summary": "GET /api/v1/users/{userId}",
+        "operationId": "getApiV1UsersUserId",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        }
+      }
+    },
+    "/api/v1/documents": {
+      "post": {
+        "summary": "POST /api/v1/documents",
+        "operationId": "postApiV1Documents",
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        }
+      }
+    },
+    "/api/v1/documents/{documentId}": {
+      "get": {
+        "summary": "GET /api/v1/documents/{documentId}",
+        "operationId": "getApiV1DocumentsDocumentId",
+        "parameters": [
+          {
+            "name": "documentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        }
+      }
+    },
+    "/api/v1/documents/{documentId}/preview": {
+      "get": {
+        "summary": "GET /api/v1/documents/{documentId}/preview",
+        "operationId": "getApiV1DocumentsDocumentIdPreview",
+        "parameters": [
+          {
+            "name": "documentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        }
+      }
+    },
+    "/api/v1/documents/{documentId}/versions": {
+      "get": {
+        "summary": "GET /api/v1/documents/{documentId}/versions",
+        "operationId": "getApiV1DocumentsDocumentIdVersions",
+        "parameters": [
+          {
+            "name": "documentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        }
+      }
+    },
+    "/api/v1/documents/{documentId}/search": {
+      "get": {
+        "summary": "GET /api/v1/documents/{documentId}/search",
+        "operationId": "getApiV1DocumentsDocumentIdSearch",
+        "parameters": [
+          {
+            "name": "documentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        }
+      }
+    },
+    "/api/v1/documents/{documentId}/versions/{versionId}": {
+      "get": {
+        "summary": "GET /api/v1/documents/{documentId}/versions/{versionId}",
+        "operationId": "getApiV1DocumentsDocumentIdVersionsVersionId",
+        "parameters": [
+          {
+            "name": "documentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "versionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        }
+      }
+    }
+  }
+}

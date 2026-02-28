@@ -1,7 +1,7 @@
 import json
 import os
+import logging
 from datetime import datetime
-import subprocess
 from typing import Dict, Any, Optional
 
 from agents.dockerfile_generator import DockerfileGeneratorAgent
@@ -14,6 +14,9 @@ from agents.observability_configurator import ObservabilityConfiguratorAgent
 from agents.cd_configurator import CDConfiguratorAgent
 from agents.security_scanner import SecurityScannerAgent
 from agents.preflight_generator import PreflightGeneratorAgent
+from utils.command_executor import safe_execute, CommandExecutionError
+
+logger = logging.getLogger(__name__)
 
 
 class DeploymentWorkflow:
@@ -85,15 +88,16 @@ class DeploymentWorkflow:
             if mode == "compose" and DEPLOYMENT_WORKFLOW_CONFIG.get("auto_start_compose", False):
                 docker_dir = os.path.join(output_dir, "docker")
                 if os.path.exists(os.path.join(docker_dir, "docker-compose.yml")):
-                    cmd = "docker compose up -d"
                     try:
-                        subprocess.run(cmd, cwd=docker_dir, shell=True, check=True)
-                        compose_started = True
-                    except Exception:
-                        cmd2 = "docker-compose up -d"
-                        subprocess.run(cmd2, cwd=docker_dir, shell=True, check=False)
-                        compose_started = True
-        except Exception:
+                        returncode, stdout, stderr = safe_execute("docker compose up -d", docker_dir)
+                        compose_started = (returncode == 0)
+                        if not compose_started:
+                            logger.warning(f"Docker compose 启动失败: {stderr}")
+                    except CommandExecutionError as e:
+                        logger.error(f"Docker compose 执行失败: {e}")
+                        compose_started = False
+        except Exception as e:
+            logger.error(f"自动启动 compose 失败: {e}")
             compose_started = False
 
         result["final_result"] = {

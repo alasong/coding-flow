@@ -1,0 +1,1864 @@
+{
+  "workflow_name": "项目分解工作流",
+  "start_time": "2026-02-27T13:18:04.728778",
+  "status": "completed",
+  "steps": {
+    "software_units": {
+      "status": "completed",
+      "count": 18
+    },
+    "work_packages": {
+      "status": "completed",
+      "count": 32
+    },
+    "matching": {
+      "status": "completed",
+      "unbound": [],
+      "wrong": []
+    },
+    "coverage": {
+      "status": "completed",
+      "total_units": 18,
+      "covered_units": 18,
+      "coverage_percentage": 100.0,
+      "uncovered_units": [],
+      "duplicate_coverage": []
+    },
+    "concurrency": {
+      "status": "completed",
+      "batches": [
+        [
+          "WP-INFRA-001",
+          "WP-INFRA-002",
+          "WP-INFRA-003"
+        ],
+        [
+          "WP-006",
+          "WP-007",
+          "WP-008",
+          "WP-009"
+        ],
+        [
+          "WP-001",
+          "WP-002",
+          "WP-003",
+          "WP-004",
+          "WP-005",
+          "WP-QUALITY-001"
+        ],
+        [
+          "WP-010",
+          "WP-011",
+          "WP-012",
+          "WP-013",
+          "WP-014",
+          "WP-015",
+          "WP-016",
+          "WP-017",
+          "WP-QUALITY-002"
+        ],
+        [
+          "WP-018",
+          "WP-QUALITY-003"
+        ],
+        [
+          "WP-QUALITY-004"
+        ],
+        [
+          "WP-TEST-001",
+          "WP-TEST-002",
+          "WP-TEST-003",
+          "WP-TEST-004"
+        ],
+        [
+          "WP-DELIVERY-001",
+          "WP-DELIVERY-002",
+          "WP-DELIVERY-003"
+        ]
+      ],
+      "conflicts": {}
+    },
+    "dev_plan": {
+      "status": "completed",
+      "count": 32
+    },
+    "review": {
+      "status": "completed",
+      "score": 85,
+      "result": {
+        "status": "passed_with_warnings",
+        "score": 85,
+        "issues": [
+          "部分任务描述中缺少对依赖项的版本约束或接口契约说明，如 WP-010 和 WP-011 对 WP-001~WP-005 的依赖未明确接口版本。",
+          "工作包 WP-DELIVERY-002 和 WP-DELIVERY-003 的风险等级分别为 medium 和 high，但未明确说明如何应对这些风险的具体缓解措施。",
+          "部分任务描述较为笼统，如 '编写数据准备与清理子流程'，建议细化具体实现方式或工具选择。",
+          "前端质量收敛（WP-QUALITY-004）依赖于 WP-018，但未说明 WP-018 的交付进度如何纳入整体项目计划。",
+          "WP-006 和 WP-007 的任务中均涉及数据库迁移脚本，但未提及迁移回滚策略或数据备份方案。",
+          "缺少版本控制策略说明（如分支模型、合并策略、代码审查流程等），建议补充相关内容。",
+          "部分工作包的验收标准不够具体，例如 '集成测试通过'、'E2E测试通过' 等，缺乏量化指标或明确的通过条件。",
+          "未明确项目交付后的支持与维护计划，尤其是生产环境就绪后的监控与响应机制。",
+          "未提及各工作包之间的依赖关系是否已在项目计划中明确并进行排期协调。",
+          "WP-012 中提到的文件上传涉及 IO 安全问题，但未明确说明如何处理恶意文件检测（如由其他包提供）及具体实现方式。",
+          "WP-016 风险中提到需要与搜索服务对齐 OpenAPI spec 版本，但未提及具体的版本号或同步机制，建议明确依赖版本及沟通计划。",
+          "部分任务描述较为笼统（如 '审查组件文档完整性'），建议细化具体检查项和验收标准。",
+          "WP-014 的风险描述中提到依赖 WP-005（通用文件服务），但未明确说明该依赖是否已进入开发或测试阶段，建议补充依赖状态。",
+          "开发计划中未体现版本控制策略或文档更新机制，可能导致归档文档与实际内容不一致。",
+          "WP-003 的风险描述中提到依赖 documents 表结构稳定性，但未明确说明与 WP-007 的集成测试计划。",
+          "WP-004 的风险描述提到接口契约不一致可能导致阻塞，但未提及接口版本管理或接口文档的同步机制。",
+          "WP-017 的任务中提到 '直通存储'，但未说明具体实现方式（如 S3 或 DB BLOB），建议补充技术选型细节。",
+          "所有工作包均未提及部署策略或灰度发布计划，建议补充上线流程和回滚机制。",
+          "部分任务描述中缺少具体的交付物或验收标准，例如‘执行文档完整性检查’未说明如何验证完整性。",
+          "WP-QUALITY-004 的风险描述中提到 'depends_on: [\"WP-018\"]'，但该字段在 YAML 中未定义，可能为格式错误。",
+          "部分工作包的任务描述中缺乏对性能、可扩展性、安全性等非功能性需求的考虑，例如 WP-011 的缓存穿透防护虽有提及，但未说明具体实现策略。",
+          "未提及质量门禁机制（如代码覆盖率、测试通过率、安全扫描结果等）是否作为上线前提条件。",
+          "UAT 支持（WP-DELIVERY-001）中的 SLA 响应时间（≤2h）和修复时间（P1 ≤4h）需要与业务方达成一致并纳入合同或协议中。",
+          "安全测试（WP-TEST-004）中提到“CVSS ≥9.0 漏洞阻断发布”，但未说明如何处理这些漏洞以及是否有替代方案。",
+          "未提及文档管理策略（如 API 文档的维护机制、更新频率等），建议补充相关计划。",
+          "未提及与相关方（如客户、SRE团队）的沟通计划，特别是在依赖外部团队的情况下。",
+          "WP-005 的安全合规要求高，但未明确提及数据加密存储、审计日志保留周期等具体措施。",
+          "WP-012 的风险等级为 high，但未明确列出具体的集成测试用例或与 WP-INFRA-002 的安全扫描能力对接方案。",
+          "WP-001 和 WP-002 的风险说明中提到依赖其他模块（如 WP-006/007/008/009），但未在工作包列表中明确列出这些依赖项，建议补充依赖关系图或注释。",
+          "性能测试（WP-TEST-003）中提到“三轮基准测试”，但未说明每轮测试的目标和预期结果。",
+          "WP-010 的任务中提到 Swagger Annotations 生成 OpenAPI 文档，但未提及文档的验证机制或是否纳入 CI/CD 流程。",
+          "部分工作包（如 WP-004）的任务描述中缺少对性能测试或压力测试的具体安排。",
+          "WP-QUALITY-001 和 WP-QUALITY-002 的依赖关系描述不够清晰，未明确说明如何处理前置工作包的隐性缺陷。",
+          "部分任务描述较为笼统，例如 '编写 CI 流水线定义文件'，建议细化具体实现方式（如使用 GitHub Actions 或 GitLab CI）以提升可执行性。",
+          "部分工作包的测试用例描述较泛，如 WP-013 中的单元测试未明确覆盖哪些具体场景，建议细化测试用例内容。",
+          "WP-TEST-001 和 WP-TEST-002 的风险描述中提到外部依赖问题，但未明确说明如何与相关团队进行协调和沟通机制。",
+          "WP-001 和 WP-002 的验收标准中未明确测试覆盖率要求或性能指标，建议补充。"
+        ],
+        "suggestions": [
+          "为 WP-004 添加接口版本控制和文档同步机制，以减少接口不一致的风险。",
+          "在项目计划中增加部署策略说明，包括 CI/CD 流水线配置、环境隔离、灰度发布步骤等。",
+          "补充版本控制与发布管理策略，包括分支策略、代码审查流程和发布节奏。",
+          "在交付后明确后续支持流程，包括运维交接后的监控、问题响应和变更管理机制。",
+          "增加版本控制和文档更新机制，确保归档文档与实际版本保持同步。",
+          "针对 WP-012 的文件上传功能，建议补充与安全扫描模块（如 WP-INFRA-002）的对接逻辑和异常处理机制。",
+          "将 UAT 的 SLA 和响应时间要求写入项目管理文档，并与业务方确认。",
+          "对于高风险工作包（如 WP-012），建议补充详细的集成测试计划和依赖项对接方案，并明确与其他模块的接口契约。",
+          "细化任务描述，增加可衡量的验收标准，提升任务执行的可追踪性。",
+          "补充与外部依赖团队的沟通机制，如定期同步会议、依赖项状态跟踪表等。",
+          "制定安全漏洞处理流程，包括漏洞修复优先级、临时缓解措施、回滚策略等。",
+          "明确各工作包间的依赖关系，并在整体项目计划中体现优先级和资源分配。",
+          "细化每项任务的交付物和验收标准，确保可衡量和可验证。",
+          "制定详细的沟通计划，特别是针对依赖外部团队的任务，明确责任人和时间节点。",
+          "为每个高风险工作包（如 WP-014、WP-016）增加依赖项状态跟踪表，确保依赖项完成后再启动开发。",
+          "为每个工作包定义更具体的验收标准，例如：集成测试覆盖率≥85%、E2E测试通过率≥95%、性能指标达标率100%等。",
+          "补充 WP-005 的安全合规细节，如密码哈希算法、SSL 配置、日志保留策略等。",
+          "补充关键依赖项的技术实现细节，如 WP-017 中的存储类型和访问方式。",
+          "引入质量门禁机制，将关键质量指标作为项目推进的硬性约束。",
+          "补充每个工作包的风险缓解策略，包括备用方案或关键路径的缓冲时间。",
+          "在开发计划中加入对 WP-018 的交付里程碑管理，确保其进度不影响后续质量收敛工作。",
+          "建议为 OpenAPI 文档的生成和验证建立自动化流程，确保文档与代码的一致性。",
+          "考虑为 API 接口定义统一的错误码规范，并在各工作包中统一使用，提升接口一致性。",
+          "细化每个任务的具体实施步骤，特别是涉及工具链配置的部分（如 CI/CD 配置、日志系统集成等）。",
+          "建议为每个工作包指定负责人或团队，提高责任明确性和协作效率。",
+          "在验收标准中加入更具体的指标（如测试覆盖率、响应时间、错误率等）以衡量质量。",
+          "细化测试用例描述，特别是异常路径和边界条件，确保可验证性和可重复性。",
+          "细化任务描述，例如指定使用什么工具进行数据准备、脚本语言、测试框架等，以提高可执行性。",
+          "为 WP-003 和 WP-007 增加集成测试计划，确保表结构变更时服务层能及时响应。",
+          "建议增加工作包之间的依赖关系说明，帮助团队理解整体开发顺序和依赖关系。",
+          "修正 YAML 格式中的语法问题，确保 'depends_on' 字段正确使用。",
+          "在性能测试计划中明确每轮测试的目标（如基线测试、优化后测试、回归测试）及预期结果。",
+          "明确各质量工作包与前置工作的依赖关系，特别是对隐性缺陷的应对策略。",
+          "在依赖项管理方面，应明确各工作包之间的接口版本控制，避免因前置模块变更导致的集成问题。",
+          "为 WP-006 和 WP-007 增加数据库迁移回滚策略和数据备份流程，提升容错能力。",
+          "在任务描述中增加对非功能性需求（如性能、安全性、可维护性）的考虑，特别是在涉及用户认证、数据存储、文件处理等关键环节。",
+          "在开发计划中增加性能测试、压力测试及负载测试的阶段性任务。"
+        ],
+        "summary": "评审完成。共评审 7 个分块，平均得分 85。"
+      }
+    }
+  },
+  "final_result": {
+    "software_units": [
+      {
+        "id": "COMP::UserManagementService",
+        "type": "component",
+        "name": "UserManagementService",
+        "context": "system",
+        "dependencies": [],
+        "risk_level": "high"
+      },
+      {
+        "id": "COMP::DocumentStorageService",
+        "type": "component",
+        "name": "DocumentStorageService",
+        "context": "system",
+        "dependencies": [],
+        "risk_level": "low"
+      },
+      {
+        "id": "COMP::DocumentPreviewService",
+        "type": "component",
+        "name": "DocumentPreviewService",
+        "context": "system",
+        "dependencies": [],
+        "risk_level": "low"
+      },
+      {
+        "id": "COMP::DocumentSearchService",
+        "type": "component",
+        "name": "DocumentSearchService",
+        "context": "system",
+        "dependencies": [],
+        "risk_level": "low"
+      },
+      {
+        "id": "COMP::APIGateway",
+        "type": "component",
+        "name": "APIGateway",
+        "context": "system",
+        "dependencies": [],
+        "risk_level": "low"
+      },
+      {
+        "id": "DB::users",
+        "type": "db",
+        "name": "users",
+        "context": "Relational",
+        "dependencies": [],
+        "risk_level": "low"
+      },
+      {
+        "id": "DB::documents",
+        "type": "db",
+        "name": "documents",
+        "context": "Relational",
+        "dependencies": [],
+        "risk_level": "low"
+      },
+      {
+        "id": "DB::document_versions",
+        "type": "db",
+        "name": "document_versions",
+        "context": "Relational",
+        "dependencies": [],
+        "risk_level": "low"
+      },
+      {
+        "id": "DB::document_search_index",
+        "type": "db",
+        "name": "document_search_index",
+        "context": "Relational",
+        "dependencies": [],
+        "risk_level": "low"
+      },
+      {
+        "id": "API::POST /api/v1/users",
+        "type": "api",
+        "name": "POST /api/v1/users",
+        "context": "RESTful",
+        "dependencies": [],
+        "risk_level": "low"
+      },
+      {
+        "id": "API::GET /api/v1/users/{userId}",
+        "type": "api",
+        "name": "GET /api/v1/users/{userId}",
+        "context": "RESTful",
+        "dependencies": [],
+        "risk_level": "low"
+      },
+      {
+        "id": "API::POST /api/v1/documents",
+        "type": "api",
+        "name": "POST /api/v1/documents",
+        "context": "RESTful",
+        "dependencies": [],
+        "risk_level": "low"
+      },
+      {
+        "id": "API::GET /api/v1/documents/{documentId}",
+        "type": "api",
+        "name": "GET /api/v1/documents/{documentId}",
+        "context": "RESTful",
+        "dependencies": [],
+        "risk_level": "low"
+      },
+      {
+        "id": "API::GET /api/v1/documents/{documentId}/preview",
+        "type": "api",
+        "name": "GET /api/v1/documents/{documentId}/preview",
+        "context": "RESTful",
+        "dependencies": [],
+        "risk_level": "low"
+      },
+      {
+        "id": "API::GET /api/v1/documents/{documentId}/versions",
+        "type": "api",
+        "name": "GET /api/v1/documents/{documentId}/versions",
+        "context": "RESTful",
+        "dependencies": [],
+        "risk_level": "low"
+      },
+      {
+        "id": "API::GET /api/v1/documents/{documentId}/search",
+        "type": "api",
+        "name": "GET /api/v1/documents/{documentId}/search",
+        "context": "RESTful",
+        "dependencies": [],
+        "risk_level": "low"
+      },
+      {
+        "id": "API::GET /api/v1/documents/{documentId}/versions/{versionId}",
+        "type": "api",
+        "name": "GET /api/v1/documents/{documentId}/versions/{versionId}",
+        "context": "RESTful",
+        "dependencies": [],
+        "risk_level": "low"
+      },
+      {
+        "id": "FE::Frontend UI",
+        "type": "frontend",
+        "name": "Frontend UI",
+        "context": "web",
+        "dependencies": [],
+        "risk_level": "low"
+      }
+    ],
+    "work_packages": [
+      {
+        "id": "WP-INFRA-001",
+        "name": "infrastructure/scaffold::RepoSetup",
+        "objective": "初始化仓库结构与基础配置",
+        "acceptance_criteria": [
+          "代码仓库可用",
+          "基础目录结构就绪"
+        ],
+        "software_unit_ids": [],
+        "subtask_ids": [],
+        "assignees": [],
+        "status": "planned",
+        "priority": "high",
+        "parallelizable": false,
+        "tags": [
+          "infrastructure",
+          "scaffold"
+        ],
+        "depends_on": []
+      },
+      {
+        "id": "WP-INFRA-002",
+        "name": "infrastructure/ci::PipelineSetup",
+        "objective": "配置 CI/CD 基础流水线",
+        "acceptance_criteria": [
+          "流水线跑通",
+          "基础构建通过"
+        ],
+        "software_unit_ids": [],
+        "subtask_ids": [],
+        "assignees": [],
+        "status": "planned",
+        "priority": "high",
+        "parallelizable": false,
+        "tags": [
+          "infrastructure",
+          "ci"
+        ],
+        "depends_on": []
+      },
+      {
+        "id": "WP-INFRA-003",
+        "name": "infrastructure/common::CommonLib",
+        "objective": "建立公共模块基础设施",
+        "acceptance_criteria": [
+          "公共模块可复用",
+          "异常与日志可用"
+        ],
+        "software_unit_ids": [],
+        "subtask_ids": [],
+        "assignees": [],
+        "status": "planned",
+        "priority": "high",
+        "parallelizable": false,
+        "tags": [
+          "infrastructure",
+          "common"
+        ],
+        "depends_on": []
+      },
+      {
+        "id": "WP-001",
+        "name": "system/component::DocumentStorageService",
+        "objective": "实现 DocumentStorageService 单元",
+        "acceptance_criteria": [
+          "功能达成",
+          "测试通过",
+          "无阻断风险"
+        ],
+        "software_unit_ids": [
+          "COMP::DocumentStorageService"
+        ],
+        "subtask_ids": [],
+        "assignees": [],
+        "status": "planned",
+        "priority": "medium",
+        "parallelizable": true,
+        "tags": [
+          "component"
+        ],
+        "depends_on": [
+          "WP-006",
+          "WP-007",
+          "WP-008",
+          "WP-009"
+        ]
+      },
+      {
+        "id": "WP-002",
+        "name": "system/component::DocumentPreviewService",
+        "objective": "实现 DocumentPreviewService 单元",
+        "acceptance_criteria": [
+          "功能达成",
+          "测试通过",
+          "无阻断风险"
+        ],
+        "software_unit_ids": [
+          "COMP::DocumentPreviewService"
+        ],
+        "subtask_ids": [],
+        "assignees": [],
+        "status": "planned",
+        "priority": "medium",
+        "parallelizable": true,
+        "tags": [
+          "component"
+        ],
+        "depends_on": [
+          "WP-006",
+          "WP-007",
+          "WP-008",
+          "WP-009"
+        ]
+      },
+      {
+        "id": "WP-003",
+        "name": "system/component::DocumentSearchService",
+        "objective": "实现 DocumentSearchService 单元",
+        "acceptance_criteria": [
+          "功能达成",
+          "测试通过",
+          "无阻断风险"
+        ],
+        "software_unit_ids": [
+          "COMP::DocumentSearchService"
+        ],
+        "subtask_ids": [],
+        "assignees": [],
+        "status": "planned",
+        "priority": "medium",
+        "parallelizable": true,
+        "tags": [
+          "component"
+        ],
+        "depends_on": [
+          "WP-006",
+          "WP-007",
+          "WP-008",
+          "WP-009"
+        ]
+      },
+      {
+        "id": "WP-004",
+        "name": "system/component::APIGateway",
+        "objective": "实现 APIGateway 单元",
+        "acceptance_criteria": [
+          "功能达成",
+          "测试通过",
+          "无阻断风险"
+        ],
+        "software_unit_ids": [
+          "COMP::APIGateway"
+        ],
+        "subtask_ids": [],
+        "assignees": [],
+        "status": "planned",
+        "priority": "medium",
+        "parallelizable": true,
+        "tags": [
+          "component"
+        ],
+        "depends_on": [
+          "WP-006",
+          "WP-007",
+          "WP-008",
+          "WP-009"
+        ]
+      },
+      {
+        "id": "WP-005",
+        "name": "system/component::UserManagementService",
+        "objective": "实现 UserManagementService 单元",
+        "acceptance_criteria": [
+          "功能达成",
+          "测试通过",
+          "无阻断风险"
+        ],
+        "software_unit_ids": [
+          "COMP::UserManagementService"
+        ],
+        "subtask_ids": [],
+        "assignees": [],
+        "status": "planned",
+        "priority": "high",
+        "parallelizable": true,
+        "tags": [
+          "component"
+        ],
+        "depends_on": [
+          "WP-006",
+          "WP-007",
+          "WP-008",
+          "WP-009"
+        ]
+      },
+      {
+        "id": "WP-006",
+        "name": "Relational/db::users",
+        "objective": "实现 users 单元",
+        "acceptance_criteria": [
+          "功能达成",
+          "测试通过",
+          "无阻断风险"
+        ],
+        "software_unit_ids": [
+          "DB::users"
+        ],
+        "subtask_ids": [],
+        "assignees": [],
+        "status": "planned",
+        "priority": "medium",
+        "parallelizable": true,
+        "tags": [
+          "db"
+        ],
+        "depends_on": [
+          "WP-INFRA-001",
+          "WP-INFRA-002",
+          "WP-INFRA-003"
+        ]
+      },
+      {
+        "id": "WP-007",
+        "name": "Relational/db::documents",
+        "objective": "实现 documents 单元",
+        "acceptance_criteria": [
+          "功能达成",
+          "测试通过",
+          "无阻断风险"
+        ],
+        "software_unit_ids": [
+          "DB::documents"
+        ],
+        "subtask_ids": [],
+        "assignees": [],
+        "status": "planned",
+        "priority": "medium",
+        "parallelizable": true,
+        "tags": [
+          "db"
+        ],
+        "depends_on": [
+          "WP-INFRA-001",
+          "WP-INFRA-002",
+          "WP-INFRA-003"
+        ]
+      },
+      {
+        "id": "WP-008",
+        "name": "Relational/db::document_versions",
+        "objective": "实现 document_versions 单元",
+        "acceptance_criteria": [
+          "功能达成",
+          "测试通过",
+          "无阻断风险"
+        ],
+        "software_unit_ids": [
+          "DB::document_versions"
+        ],
+        "subtask_ids": [],
+        "assignees": [],
+        "status": "planned",
+        "priority": "medium",
+        "parallelizable": true,
+        "tags": [
+          "db"
+        ],
+        "depends_on": [
+          "WP-INFRA-001",
+          "WP-INFRA-002",
+          "WP-INFRA-003"
+        ]
+      },
+      {
+        "id": "WP-009",
+        "name": "Relational/db::document_search_index",
+        "objective": "实现 document_search_index 单元",
+        "acceptance_criteria": [
+          "功能达成",
+          "测试通过",
+          "无阻断风险"
+        ],
+        "software_unit_ids": [
+          "DB::document_search_index"
+        ],
+        "subtask_ids": [],
+        "assignees": [],
+        "status": "planned",
+        "priority": "medium",
+        "parallelizable": true,
+        "tags": [
+          "db"
+        ],
+        "depends_on": [
+          "WP-INFRA-001",
+          "WP-INFRA-002",
+          "WP-INFRA-003"
+        ]
+      },
+      {
+        "id": "WP-010",
+        "name": "RESTful/api::POST /api/v1/users",
+        "objective": "实现 POST /api/v1/users 单元",
+        "acceptance_criteria": [
+          "功能达成",
+          "测试通过",
+          "无阻断风险"
+        ],
+        "software_unit_ids": [
+          "API::POST /api/v1/users"
+        ],
+        "subtask_ids": [],
+        "assignees": [],
+        "status": "planned",
+        "priority": "medium",
+        "parallelizable": true,
+        "tags": [
+          "api"
+        ],
+        "depends_on": [
+          "WP-001",
+          "WP-002",
+          "WP-003",
+          "WP-004",
+          "WP-005"
+        ]
+      },
+      {
+        "id": "WP-011",
+        "name": "RESTful/api::GET /api/v1/users/{userId}",
+        "objective": "实现 GET /api/v1/users/{userId} 单元",
+        "acceptance_criteria": [
+          "功能达成",
+          "测试通过",
+          "无阻断风险"
+        ],
+        "software_unit_ids": [
+          "API::GET /api/v1/users/{userId}"
+        ],
+        "subtask_ids": [],
+        "assignees": [],
+        "status": "planned",
+        "priority": "medium",
+        "parallelizable": true,
+        "tags": [
+          "api"
+        ],
+        "depends_on": [
+          "WP-001",
+          "WP-002",
+          "WP-003",
+          "WP-004",
+          "WP-005"
+        ]
+      },
+      {
+        "id": "WP-012",
+        "name": "RESTful/api::POST /api/v1/documents",
+        "objective": "实现 POST /api/v1/documents 单元",
+        "acceptance_criteria": [
+          "功能达成",
+          "测试通过",
+          "无阻断风险"
+        ],
+        "software_unit_ids": [
+          "API::POST /api/v1/documents"
+        ],
+        "subtask_ids": [],
+        "assignees": [],
+        "status": "planned",
+        "priority": "medium",
+        "parallelizable": true,
+        "tags": [
+          "api"
+        ],
+        "depends_on": [
+          "WP-001",
+          "WP-002",
+          "WP-003",
+          "WP-004",
+          "WP-005"
+        ]
+      },
+      {
+        "id": "WP-013",
+        "name": "RESTful/api::GET /api/v1/documents/{documentId}",
+        "objective": "实现 GET /api/v1/documents/{documentId} 单元",
+        "acceptance_criteria": [
+          "功能达成",
+          "测试通过",
+          "无阻断风险"
+        ],
+        "software_unit_ids": [
+          "API::GET /api/v1/documents/{documentId}"
+        ],
+        "subtask_ids": [],
+        "assignees": [],
+        "status": "planned",
+        "priority": "medium",
+        "parallelizable": true,
+        "tags": [
+          "api"
+        ],
+        "depends_on": [
+          "WP-001",
+          "WP-002",
+          "WP-003",
+          "WP-004",
+          "WP-005"
+        ]
+      },
+      {
+        "id": "WP-014",
+        "name": "RESTful/api::GET /api/v1/documents/{documentId}/preview",
+        "objective": "实现 GET /api/v1/documents/{documentId}/preview 单元",
+        "acceptance_criteria": [
+          "功能达成",
+          "测试通过",
+          "无阻断风险"
+        ],
+        "software_unit_ids": [
+          "API::GET /api/v1/documents/{documentId}/preview"
+        ],
+        "subtask_ids": [],
+        "assignees": [],
+        "status": "planned",
+        "priority": "medium",
+        "parallelizable": true,
+        "tags": [
+          "api"
+        ],
+        "depends_on": [
+          "WP-001",
+          "WP-002",
+          "WP-003",
+          "WP-004",
+          "WP-005"
+        ]
+      },
+      {
+        "id": "WP-015",
+        "name": "RESTful/api::GET /api/v1/documents/{documentId}/versions",
+        "objective": "实现 GET /api/v1/documents/{documentId}/versions 单元",
+        "acceptance_criteria": [
+          "功能达成",
+          "测试通过",
+          "无阻断风险"
+        ],
+        "software_unit_ids": [
+          "API::GET /api/v1/documents/{documentId}/versions"
+        ],
+        "subtask_ids": [],
+        "assignees": [],
+        "status": "planned",
+        "priority": "medium",
+        "parallelizable": true,
+        "tags": [
+          "api"
+        ],
+        "depends_on": [
+          "WP-001",
+          "WP-002",
+          "WP-003",
+          "WP-004",
+          "WP-005"
+        ]
+      },
+      {
+        "id": "WP-016",
+        "name": "RESTful/api::GET /api/v1/documents/{documentId}/search",
+        "objective": "实现 GET /api/v1/documents/{documentId}/search 单元",
+        "acceptance_criteria": [
+          "功能达成",
+          "测试通过",
+          "无阻断风险"
+        ],
+        "software_unit_ids": [
+          "API::GET /api/v1/documents/{documentId}/search"
+        ],
+        "subtask_ids": [],
+        "assignees": [],
+        "status": "planned",
+        "priority": "medium",
+        "parallelizable": true,
+        "tags": [
+          "api"
+        ],
+        "depends_on": [
+          "WP-001",
+          "WP-002",
+          "WP-003",
+          "WP-004",
+          "WP-005"
+        ]
+      },
+      {
+        "id": "WP-017",
+        "name": "RESTful/api::GET /api/v1/documents/{documentId}/versions/{versionId}",
+        "objective": "实现 GET /api/v1/documents/{documentId}/versions/{versionId} 单元",
+        "acceptance_criteria": [
+          "功能达成",
+          "测试通过",
+          "无阻断风险"
+        ],
+        "software_unit_ids": [
+          "API::GET /api/v1/documents/{documentId}/versions/{versionId}"
+        ],
+        "subtask_ids": [],
+        "assignees": [],
+        "status": "planned",
+        "priority": "medium",
+        "parallelizable": true,
+        "tags": [
+          "api"
+        ],
+        "depends_on": [
+          "WP-001",
+          "WP-002",
+          "WP-003",
+          "WP-004",
+          "WP-005"
+        ]
+      },
+      {
+        "id": "WP-018",
+        "name": "web/frontend::Frontend UI",
+        "objective": "实现 Frontend UI 单元",
+        "acceptance_criteria": [
+          "功能达成",
+          "测试通过",
+          "无阻断风险"
+        ],
+        "software_unit_ids": [
+          "FE::Frontend UI"
+        ],
+        "subtask_ids": [],
+        "assignees": [],
+        "status": "planned",
+        "priority": "medium",
+        "parallelizable": true,
+        "tags": [
+          "frontend"
+        ],
+        "depends_on": [
+          "WP-010",
+          "WP-011",
+          "WP-012",
+          "WP-013",
+          "WP-014",
+          "WP-015",
+          "WP-016",
+          "WP-017"
+        ]
+      },
+      {
+        "id": "WP-QUALITY-001",
+        "name": "quality/db::Convergence",
+        "objective": "数据库质量收敛",
+        "acceptance_criteria": [
+          "质量标准达成",
+          "风险收敛完成"
+        ],
+        "software_unit_ids": [],
+        "subtask_ids": [],
+        "assignees": [],
+        "status": "planned",
+        "priority": "high",
+        "parallelizable": false,
+        "tags": [
+          "quality"
+        ],
+        "quality_scope": "db",
+        "depends_on": [
+          "WP-006",
+          "WP-007",
+          "WP-008",
+          "WP-009"
+        ]
+      },
+      {
+        "id": "WP-QUALITY-002",
+        "name": "quality/component::Convergence",
+        "objective": "组件质量收敛",
+        "acceptance_criteria": [
+          "质量标准达成",
+          "风险收敛完成"
+        ],
+        "software_unit_ids": [],
+        "subtask_ids": [],
+        "assignees": [],
+        "status": "planned",
+        "priority": "high",
+        "parallelizable": false,
+        "tags": [
+          "quality"
+        ],
+        "quality_scope": "component",
+        "depends_on": [
+          "WP-001",
+          "WP-002",
+          "WP-003",
+          "WP-004",
+          "WP-005"
+        ]
+      },
+      {
+        "id": "WP-QUALITY-003",
+        "name": "quality/api::Convergence",
+        "objective": "接口质量收敛",
+        "acceptance_criteria": [
+          "质量标准达成",
+          "风险收敛完成"
+        ],
+        "software_unit_ids": [],
+        "subtask_ids": [],
+        "assignees": [],
+        "status": "planned",
+        "priority": "high",
+        "parallelizable": false,
+        "tags": [
+          "quality"
+        ],
+        "quality_scope": "api",
+        "depends_on": [
+          "WP-010",
+          "WP-011",
+          "WP-012",
+          "WP-013",
+          "WP-014",
+          "WP-015",
+          "WP-016",
+          "WP-017"
+        ]
+      },
+      {
+        "id": "WP-QUALITY-004",
+        "name": "quality/frontend::Convergence",
+        "objective": "前端质量收敛",
+        "acceptance_criteria": [
+          "质量标准达成",
+          "风险收敛完成"
+        ],
+        "software_unit_ids": [],
+        "subtask_ids": [],
+        "assignees": [],
+        "status": "planned",
+        "priority": "high",
+        "parallelizable": false,
+        "tags": [
+          "quality"
+        ],
+        "quality_scope": "frontend",
+        "depends_on": [
+          "WP-018"
+        ]
+      },
+      {
+        "id": "WP-TEST-001",
+        "name": "testing/integration::Suites",
+        "objective": "编写集成测试套件",
+        "acceptance_criteria": [
+          "集成测试通过"
+        ],
+        "software_unit_ids": [],
+        "subtask_ids": [],
+        "assignees": [],
+        "status": "planned",
+        "priority": "low",
+        "parallelizable": false,
+        "tags": [
+          "testing",
+          "qa"
+        ],
+        "depends_on": [
+          "WP-QUALITY-001",
+          "WP-QUALITY-002",
+          "WP-QUALITY-003",
+          "WP-QUALITY-004"
+        ]
+      },
+      {
+        "id": "WP-TEST-002",
+        "name": "testing/e2e::Scenarios",
+        "objective": "编写端到端测试脚本",
+        "acceptance_criteria": [
+          "E2E测试通过"
+        ],
+        "software_unit_ids": [],
+        "subtask_ids": [],
+        "assignees": [],
+        "status": "planned",
+        "priority": "low",
+        "parallelizable": false,
+        "tags": [
+          "testing",
+          "qa"
+        ],
+        "depends_on": [
+          "WP-QUALITY-001",
+          "WP-QUALITY-002",
+          "WP-QUALITY-003",
+          "WP-QUALITY-004"
+        ]
+      },
+      {
+        "id": "WP-TEST-003",
+        "name": "testing/perf::Benchmarks",
+        "objective": "执行性能测试",
+        "acceptance_criteria": [
+          "性能指标达标"
+        ],
+        "software_unit_ids": [],
+        "subtask_ids": [],
+        "assignees": [],
+        "status": "planned",
+        "priority": "low",
+        "parallelizable": false,
+        "tags": [
+          "testing",
+          "qa"
+        ],
+        "depends_on": [
+          "WP-QUALITY-001",
+          "WP-QUALITY-002",
+          "WP-QUALITY-003",
+          "WP-QUALITY-004"
+        ]
+      },
+      {
+        "id": "WP-TEST-004",
+        "name": "testing/security::Scan",
+        "objective": "执行安全扫描",
+        "acceptance_criteria": [
+          "安全扫描通过"
+        ],
+        "software_unit_ids": [],
+        "subtask_ids": [],
+        "assignees": [],
+        "status": "planned",
+        "priority": "low",
+        "parallelizable": false,
+        "tags": [
+          "testing",
+          "qa"
+        ],
+        "depends_on": [
+          "WP-QUALITY-001",
+          "WP-QUALITY-002",
+          "WP-QUALITY-003",
+          "WP-QUALITY-004"
+        ]
+      },
+      {
+        "id": "WP-DELIVERY-001",
+        "name": "delivery/uat::Support",
+        "objective": "支持用户验收测试(UAT)",
+        "acceptance_criteria": [
+          "UAT签字确认"
+        ],
+        "software_unit_ids": [],
+        "subtask_ids": [],
+        "assignees": [],
+        "status": "planned",
+        "priority": "low",
+        "parallelizable": false,
+        "tags": [
+          "delivery",
+          "acceptance"
+        ],
+        "depends_on": [
+          "WP-TEST-001",
+          "WP-TEST-002",
+          "WP-TEST-003",
+          "WP-TEST-004"
+        ]
+      },
+      {
+        "id": "WP-DELIVERY-002",
+        "name": "delivery/docs::Handover",
+        "objective": "完成文档移交与归档",
+        "acceptance_criteria": [
+          "所有文档归档"
+        ],
+        "software_unit_ids": [],
+        "subtask_ids": [],
+        "assignees": [],
+        "status": "planned",
+        "priority": "low",
+        "parallelizable": false,
+        "tags": [
+          "delivery",
+          "acceptance"
+        ],
+        "depends_on": [
+          "WP-TEST-001",
+          "WP-TEST-002",
+          "WP-TEST-003",
+          "WP-TEST-004"
+        ]
+      },
+      {
+        "id": "WP-DELIVERY-003",
+        "name": "delivery/release::Ready",
+        "objective": "准备生产环境发布",
+        "acceptance_criteria": [
+          "生产环境部署就绪"
+        ],
+        "software_unit_ids": [],
+        "subtask_ids": [],
+        "assignees": [],
+        "status": "planned",
+        "priority": "low",
+        "parallelizable": false,
+        "tags": [
+          "delivery",
+          "acceptance"
+        ],
+        "depends_on": [
+          "WP-TEST-001",
+          "WP-TEST-002",
+          "WP-TEST-003",
+          "WP-TEST-004"
+        ]
+      }
+    ],
+    "coverage_report": {
+      "total_units": 18,
+      "covered_units": 18,
+      "coverage_percentage": 100.0,
+      "uncovered_units": [],
+      "duplicate_coverage": []
+    },
+    "concurrency_plan": {
+      "batches": [
+        [
+          "WP-INFRA-001",
+          "WP-INFRA-002",
+          "WP-INFRA-003"
+        ],
+        [
+          "WP-006",
+          "WP-007",
+          "WP-008",
+          "WP-009"
+        ],
+        [
+          "WP-001",
+          "WP-002",
+          "WP-003",
+          "WP-004",
+          "WP-005",
+          "WP-QUALITY-001"
+        ],
+        [
+          "WP-010",
+          "WP-011",
+          "WP-012",
+          "WP-013",
+          "WP-014",
+          "WP-015",
+          "WP-016",
+          "WP-017",
+          "WP-QUALITY-002"
+        ],
+        [
+          "WP-018",
+          "WP-QUALITY-003"
+        ],
+        [
+          "WP-QUALITY-004"
+        ],
+        [
+          "WP-TEST-001",
+          "WP-TEST-002",
+          "WP-TEST-003",
+          "WP-TEST-004"
+        ],
+        [
+          "WP-DELIVERY-001",
+          "WP-DELIVERY-002",
+          "WP-DELIVERY-003"
+        ]
+      ],
+      "conflicts": {}
+    },
+    "dev_plans": [
+      {
+        "package_id": "WP-INFRA-001",
+        "tasks": [
+          "创建 Git 仓库（含 .gitignore、LICENSE、README.md 模板）",
+          "初始化标准目录结构：`/src`, `/tests`, `/scripts`, `/config`, `/docs`, `/infra`",
+          "配置项目元信息文件（e.g., `pyproject.toml` 或 `package.json`，含基础构建/格式化工具声明）",
+          "设置代码风格与静态检查基础配置（pre-commit hooks + black/ruff/eslint）",
+          "提交初始 commit 并完成远程仓库首次推送与权限验证"
+        ],
+        "acceptance_criteria": [
+          "代码仓库可用",
+          "基础目录结构就绪"
+        ],
+        "estimate_points": 3,
+        "risk_level": "low",
+        "risk_reason": "无外部依赖，任务边界清晰，属纯初始化操作"
+      },
+      {
+        "package_id": "WP-INFRA-002",
+        "tasks": [
+          "编写 CI 流水线定义文件（GitHub Actions `.yml` / GitLab CI `.yml`），覆盖 `on: push/pull_request` 触发",
+          "集成基础构建阶段：代码检出 → 依赖安装 → 语法检查（ruff/eslint）→ 格式校验（black/prettier）",
+          "添加轻量级健康检查（如 `echo \"CI pipeline initialized\"` + exit 0）确保流水线可执行",
+          "验证流水线在空分支/最小 PR 上成功运行并返回 success 状态",
+          "将流水线配置纳入版本控制并关联至主干分支保护规则（草案）"
+        ],
+        "acceptance_criteria": [
+          "流水线跑通",
+          "基础构建通过"
+        ],
+        "estimate_points": 5,
+        "risk_level": "medium",
+        "risk_reason": "CI 平台权限配置或 runner 可用性存在环境不确定性；需协调 DevOps 团队开通必要权限"
+      },
+      {
+        "package_id": "WP-INFRA-003",
+        "tasks": [
+          "创建 `common/` 模块目录，定义 `__init__.py` 及模块层级结构（e.g., `common/logging`, `common/errors`, `common/utils`）",
+          "实现统一日志配置器（支持结构化 JSON 输出、等级分级、上下文注入）",
+          "定义基础异常基类（`BaseAppException`）及常用子类（`ValidationError`, `ServiceUnavailableError`）",
+          "实现通用工具函数：`safe_cast`, `retry_on_exception`, `parse_datetime_iso`",
+          "编写模块内单元测试（覆盖率 ≥80%，聚焦异常路径与日志行为）"
+        ],
+        "acceptance_criteria": [
+          "公共模块可复用",
+          "异常与日志可用"
+        ],
+        "estimate_points": 8,
+        "risk_level": "low",
+        "risk_reason": "无外部服务依赖；所有逻辑纯内存态，测试完备性高"
+      },
+      {
+        "package_id": "WP-001",
+        "tasks": [
+          "编写 `DocumentStorageService` 核心实现（含文件上传/下载/元数据管理接口）",
+          "实现存储适配层（支持本地 FS + S3 兼容对象存储抽象）",
+          "编写完整单元测试套件（覆盖正常流、边界条件、错误注入场景，含 mock 存储客户端）",
+          "生成 OpenAPI 3.0 文档片段（使用 Swagger UI 注解或 Pydantic V2 schema 导出）",
+          "在本地启动服务并手动验证核心 API（POST /documents, GET /documents/{id}）"
+        ],
+        "acceptance_criteria": [
+          "功能达成",
+          "测试通过",
+          "无阻断风险"
+        ],
+        "estimate_points": 13,
+        "risk_level": "medium",
+        "risk_reason": "依赖下游 WP-006/007/008/009（认证、配置、监控、追踪模块）提供关键能力；若其延迟将阻塞集成验证"
+      },
+      {
+        "package_id": "WP-002",
+        "tasks": [
+          "编写 `DocumentPreviewService` 核心实现（含文档格式解析、缩略图生成、预览内容提取）",
+          "集成文档转换中间件（如 LibreOffice headless / pdf.js server wrapper）",
+          "编写完整单元测试套件（覆盖 PDF/DOCX/PPTX 解析、超时处理、大文件拒绝策略）",
+          "生成 OpenAPI 3.0 文档片段（含响应示例与错误码说明）",
+          "在本地启动服务并手动验证预览流（GET /preview/{id}?format=png）"
+        ],
+        "acceptance_criteria": [
+          "功能达成",
+          "测试通过",
+          "无阻断风险"
+        ],
+        "estimate_points": 13,
+        "risk_level": "medium",
+        "risk_reason": "同 WP-001，强依赖 WP-006/007/008/009 提供的认证、配置与可观测性能力；且文档解析引擎存在兼容性与性能风险"
+      },
+      {
+        "package_id": "WP-003",
+        "tasks": [
+          "编写 DocumentSearchService 核心业务逻辑（基于 documents DB schema 实现全文检索、过滤、分页）",
+          "实现服务层接口定义（DTO、Request/Response 结构、异常处理契约）",
+          "编写完整单元测试（覆盖正常流程、边界条件、空结果、权限校验等，覆盖率 ≥85%）",
+          "集成 APIGateway 调用适配（含 OpenAPI 规范兼容的注解或配置）",
+          "生成 Swagger/OpenAPI 3.0 文档并验证可交互性",
+          "执行静态代码分析（SonarQube 规则集）与安全扫描（SAST 基础检查）"
+        ],
+        "acceptance_criteria": [
+          "功能达成",
+          "测试通过",
+          "无阻断风险"
+        ],
+        "estimate_points": 8,
+        "risk_level": "medium",
+        "risk_reason": "依赖 documents 表结构稳定性；若 WP-007 迁移脚本未就绪或字段语义变更，需返工重构搜索逻辑"
+      },
+      {
+        "package_id": "WP-004",
+        "tasks": [
+          "编写 APIGateway 核心路由与鉴权中间件（JWT 解析、RBAC 策略注入）",
+          "实现下游服务（DocumentSearchService、UserManagementService）的负载均衡与熔断集成（Resilience4j 或 Spring Cloud CircuitBreaker）",
+          "编写网关级单元测试（路由匹配、鉴权拦截、降级响应、请求头透传）",
+          "生成网关统一 OpenAPI 文档（聚合下游服务接口，支持 `/v1/openapi.json` 端点）",
+          "配置 CORS、速率限制（Rate Limiting）及请求日志审计（结构化 JSON 日志）"
+        ],
+        "acceptance_criteria": [
+          "功能达成",
+          "测试通过",
+          "无阻断风险"
+        ],
+        "estimate_points": 13,
+        "risk_level": "high",
+        "risk_reason": "作为系统入口点，存在单点故障与性能瓶颈风险；若 WP-005/WP-003 接口契约不一致（如 DTO 字段命名冲突、HTTP 状态码误用），将导致网关集成失败并引发阻塞"
+      },
+      {
+        "package_id": "WP-005",
+        "tasks": [
+          "编写 UserManagementService 核心功能（用户注册/登录/登出、角色分配、密码重置、JWT Token 管理）",
+          "实现与 users DB 表的 ORM 映射（JPA/Hibernate 或 MyBatis，含加密字段处理）",
+          "编写完整单元测试（含 BCrypt 密码哈希、Token 签发/校验、并发注册幂等性验证）",
+          "输出标准 RESTful API 文档（含示例请求/响应、错误码表、认证方式说明）",
+          "集成 Spring Security OAuth2 Resource Server 配置（与 APIGateway 协同验证）"
+        ],
+        "acceptance_criteria": [
+          "功能达成",
+          "测试通过",
+          "无阻断风险"
+        ],
+        "estimate_points": 10,
+        "risk_level": "high",
+        "risk_reason": "涉及核心身份认证与敏感数据，安全合规要求高；若 WP-006 的 users 表缺少索引（如 email 唯一索引）、加密字段长度不足或未启用数据库级 SSL，将触发阻断性安全评审失败"
+      },
+      {
+        "package_id": "WP-006",
+        "tasks": [
+          "设计 users 表关系型 Schema（含字段：id, email, password_hash, full_name, role, status, created_at, updated_at）",
+          "编写数据库迁移脚本（Flyway/Liquibase V1__create_users_table.sql），含主键、唯一约束、索引（email）、默认值与非空约束",
+          "执行本地 PostgreSQL/MySQL 容器实例部署并执行迁移验证",
+          "编写数据一致性检查脚本（验证约束生效、初始数据插入成功）",
+          "输出 ER 图（PlantUML 格式）及字段字典文档（Markdown）"
+        ],
+        "acceptance_criteria": [
+          "功能达成",
+          "测试通过",
+          "无阻断风险"
+        ],
+        "estimate_points": 5,
+        "risk_level": "low",
+        "risk_reason": "数据库基础单元，无业务逻辑复杂度；但强依赖 WP-INFRA-001/002/003（DB 运行时、连接池、凭证管理）就绪，若基础设施延迟将直接阻塞本项启动"
+      },
+      {
+        "package_id": "WP-007",
+        "tasks": [
+          "设计 documents 表关系型 Schema（含字段：id, title, content, author_id, tags, status, created_at, updated_at, search_vector）",
+          "编写数据库迁移脚本（Flyway/Liquibase V1__create_documents_table.sql），含外键（author_id → users.id）、全文检索向量（PostgreSQL tsvector 或 MySQL FULLTEXT）、索引（status + created_at 复合索引）",
+          "执行本地数据库实例迁移并验证表结构与索引有效性（EXPLAIN ANALYZE 查询）",
+          "编写数据导入/导出示例脚本（CSV → INSERT）",
+          "输出 ER 图（PlantUML 格式）及字段字典文档（Markdown）"
+        ],
+        "acceptance_criteria": [
+          "功能达成",
+          "测试通过",
+          "无阻断风险"
+        ],
+        "estimate_points": 6,
+        "risk_level": "medium",
+        "risk_reason": "全文检索向量依赖数据库版本特性（如 PostgreSQL 12+），若 WP-INFRA-001 提供的 DB 版本不兼容，需降级方案（如改用 pg_trgm）；同时与 WP-003 搜索逻辑强耦合，schema 变更将引发服务层返工"
+      },
+      {
+        "package_id": "WP-008",
+        "tasks": [
+          "设计 `document_versions` 表结构（含主键、外键约束、版本号、文档ID、内容哈希、创建时间、软删除标记）",
+          "编写 SQL 迁移脚本（`V2024_05_01__create_document_versions.sql`），支持 PostgreSQL/MySQL 双方言适配",
+          "在数据库迁移框架（如 Flyway）中注册并验证迁移可逆性（`down` 脚本存在且语法合法）",
+          "配置表级注释与字段级注释，符合团队数据字典规范",
+          "集成至 DB 初始化流程，确保在 `WP-INFRA-001`（DB 连接池）、`WP-INFRA-002`（配置中心）、`WP-INFRA-003`（健康检查）就绪后自动执行"
+        ],
+        "acceptance_criteria": [
+          "功能达成",
+          "测试通过",
+          "无阻断风险"
+        ],
+        "estimate_points": 5,
+        "risk_level": "low",
+        "risk_reason": "无业务逻辑复杂度，仅结构定义与迁移；依赖的基础设施包已稳定交付，无跨团队阻塞点"
+      },
+      {
+        "package_id": "WP-009",
+        "tasks": [
+          "设计 `document_search_index` 全文检索支撑表（含 `document_id`, `title_tsvector`, `content_tsvector`, `updated_at`, GIN 索引）",
+          "编写带 `tsvector` 自动生成逻辑的迁移脚本（`V2024_05_02__create_document_search_index.sql`），兼容 PostgreSQL 的 `pg_trgm`/`tsvector` 扩展启用检查",
+          "实现索引更新触发器或应用层异步同步机制（明确标注“不在此包实现”，仅预留钩子接口）",
+          "添加表空间与分区策略说明（如未来按月分区），写入 `DESIGN.md`",
+          "验证迁移在空库与已有数据场景下均能幂等执行"
+        ],
+        "acceptance_criteria": [
+          "功能达成",
+          "测试通过",
+          "无阻断风险"
+        ],
+        "estimate_points": 5,
+        "risk_level": "low",
+        "risk_reason": "属纯数据层基建，不涉及业务规则；依赖同 WP-008 的基础设施包，复用相同环境与工具链"
+      },
+      {
+        "package_id": "WP-010",
+        "tasks": [
+          "编写 `POST /api/v1/users` 控制器逻辑：校验请求体（JSON Schema）、调用用户服务层、返回标准 201 响应（含 `Location` 头）",
+          "实现服务层 `UserService.create()`：密码哈希（bcrypt v4）、唯一性校验（邮箱/用户名）、默认角色分配",
+          "编写完整单元测试（覆盖率 ≥85%）：覆盖成功创建、邮箱重复、无效邮箱格式、空字段等边界用例",
+          "使用 Swagger Annotations 生成 OpenAPI 3.0 文档，导出至 `/docs/openapi.json` 并验证可被 UI 渲染",
+          "添加 API 请求日志（结构化 JSON，含 trace_id、user_agent、duration_ms）及错误分类埋点（4xx/5xx）"
+        ],
+        "acceptance_criteria": [
+          "功能达成",
+          "测试通过",
+          "无阻断风险"
+        ],
+        "estimate_points": 8,
+        "risk_level": "medium",
+        "risk_reason": "依赖 WP-001~WP-005（认证、基础 DTO、异常处理、日志、配置模块），若其中任一未完成将导致编译/运行失败；需协调各前置包接口契约一致性"
+      },
+      {
+        "package_id": "WP-011",
+        "tasks": [
+          "编写 `GET /api/v1/users/{userId}` 控制器：路径参数解析、JWT 用户权限校验（仅本人或管理员可查）、返回 200 或 404",
+          "实现服务层 `UserService.findById()`：支持缓存穿透防护（布隆过滤器 + 空值缓存）、数据库查询优化（覆盖索引）",
+          "编写单元测试：覆盖正常查询、非法 UUID 格式、不存在用户、权限拒绝（非本人/非管理员）等场景",
+          "更新 OpenAPI 文档：补充 path 参数描述、响应示例（`UserResponse` schema）、安全要求（`BearerAuth`）",
+          "集成到 API 网关白名单（若适用），记录访问审计日志（操作人、目标 ID、时间戳）"
+        ],
+        "acceptance_criteria": [
+          "功能达成",
+          "测试通过",
+          "无阻断风险"
+        ],
+        "estimate_points": 6,
+        "risk_level": "medium",
+        "risk_reason": "强依赖 WP-001（JWT 认证）、WP-003（统一异常处理）、WP-005（配置管理）；权限校验逻辑需与现有 RBAC 模块对齐，存在契约变更风险"
+      },
+      {
+        "package_id": "WP-012",
+        "tasks": [
+          "编写 `POST /api/v1/documents` 控制器：支持 multipart/form-data（含文件上传）与 JSON body（元数据）混合解析",
+          "实现服务层 `DocumentService.create()`：调用 `DB::document_versions` 写入初始版本、触发 `DB::document_search_index` 同步钩子、生成文档唯一 ID（ULID）",
+          "编写单元测试：覆盖文件上传成功、超大文件拒绝（10MB 限）、缺失必填元数据、版本冲突（并发创建同名文档）等场景",
+          "生成 API 文档：详细描述 multipart 字段映射关系、`Content-Disposition` 示例、错误码（413/422/500）",
+          "添加端到端集成测试（独立 test suite）：启动嵌入式 DB + WebServer，验证从上传→存储→索引可查全流程"
+        ],
+        "acceptance_criteria": [
+          "功能达成",
+          "测试通过",
+          "无阻断风险"
+        ],
+        "estimate_points": 10,
+        "risk_level": "high",
+        "risk_reason": "跨领域强耦合——同时依赖 DB 包（WP-008/WP-009）与全部前置 API 基础包（WP-001~WP-005）；文件上传涉及 IO 安全（恶意文件检测未在此包实现，需确认是否由 WP-INFRA-002 提供扫描能力）、性能瓶颈（大文件流式处理），存在交付延迟与集成风险"
+      },
+      {
+        "package_id": "WP-013",
+        "tasks": [
+          "编写 `/api/v1/documents/{documentId}` RESTful 接口控制器逻辑（含文档ID路径参数解析、权限校验、业务实体查询）",
+          "实现服务层调用，集成文档仓储（DocumentRepository）获取单文档详情",
+          "编写对应单元测试（覆盖成功响应、404文档不存在、403无权限、500内部异常等场景）",
+          "使用 Swagger/OpenAPI 注解生成并验证 API 文档（含请求路径、响应模型、状态码说明）",
+          "集成日志埋点与结构化错误追踪（trace ID 关联）",
+          "提交代码至主干分支，触发 CI 流水线执行 lint + unit test + API contract check"
+        ],
+        "acceptance_criteria": [
+          "功能达成",
+          "测试通过",
+          "无阻断风险"
+        ],
+        "estimate_points": 5,
+        "risk_level": "low",
+        "risk_reason": "依赖项（WP-001–WP-005）已明确为前置基础能力（如认证、日志、配置、核心实体、通用异常处理），接口逻辑单一、无外部服务强耦合，边界清晰"
+      },
+      {
+        "package_id": "WP-014",
+        "tasks": [
+          "编写 `/api/v1/documents/{documentId}/preview` 接口控制器（支持预览元数据或轻量渲染标识，不触发完整文件流）",
+          "实现预览策略适配器（根据文档类型选择缩略图生成/文本摘要/占位响应）",
+          "编写单元测试（覆盖预览可用性判断、MIME类型协商、缓存头设置、无权限/无效ID等异常路径）",
+          "更新 OpenAPI 文档，补充 preview 端点定义、示例响应及 `Cache-Control` 注释",
+          "执行 API 合约测试（确保响应结构与 OpenAPI schema 严格一致）",
+          "在 CI 中增加 preview 接口的 Postman 集成回归测试用例"
+        ],
+        "acceptance_criteria": [
+          "功能达成",
+          "测试通过",
+          "无阻断风险"
+        ],
+        "estimate_points": 6,
+        "risk_level": "medium",
+        "risk_reason": "预览逻辑可能引入文档格式解析依赖（如 PDF/DOCX 处理库），若 WP-005（通用文件服务）未完备，存在兼容性风险；需确认其抽象层是否屏蔽底层实现细节"
+      },
+      {
+        "package_id": "WP-015",
+        "tasks": [
+          "编写 `/api/v1/documents/{documentId}/versions` 接口控制器（分页列出版本历史）",
+          "实现版本仓储查询逻辑（关联 DocumentVersion 实体，按时间倒序分页，含 total count）",
+          "编写单元测试（覆盖空版本列表、分页参数校验、排序正确性、软删除版本过滤）",
+          "补充 OpenAPI 文档：定义 `VersionSummary` 模型、分页参数（`page`, `size`）、Link header 示例",
+          "执行数据库查询性能验证（模拟万级版本数据，确保响应 < 800ms）",
+          "将版本列表接口纳入 API 健康检查清单（/health/ready）"
+        ],
+        "acceptance_criteria": [
+          "功能达成",
+          "测试通过",
+          "无阻断风险"
+        ],
+        "estimate_points": 5,
+        "risk_level": "low",
+        "risk_reason": "版本查询属标准 ORM 分页场景，依赖 WP-003（数据库迁移）已提供 `document_versions` 表结构，无新增复杂查询逻辑"
+      },
+      {
+        "package_id": "WP-016",
+        "tasks": [
+          "编写 `/api/v1/documents/{documentId}/search` 接口控制器（在指定文档内执行全文检索子集）",
+          "集成搜索服务客户端（调用 WP-004 定义的 SearchService 接口），构造 `documentId` 上下文约束查询",
+          "实现搜索结果标准化封装（高亮片段、相关性分数、偏移量控制）",
+          "编写单元测试（覆盖关键词匹配、布尔组合查询、空结果、超时熔断降级响应）",
+          "更新 OpenAPI 文档：添加 `q`, `highlight`, `limit` 参数定义及 `SearchResult` 响应模型",
+          "执行契约测试（Consumer-Driven Contract），验证与搜索服务的 JSON Schema 兼容性"
+        ],
+        "acceptance_criteria": [
+          "功能达成",
+          "测试通过",
+          "无阻断风险"
+        ],
+        "estimate_points": 7,
+        "risk_level": "medium",
+        "risk_reason": "强依赖 WP-004（搜索服务）的可用性与协议稳定性；若其尚未完成或接口变更，将导致集成失败；需同步对齐搜索服务的 OpenAPI spec 版本"
+      },
+      {
+        "package_id": "WP-017",
+        "tasks": [
+          "编写 `/api/v1/documents/{documentId}/versions/{versionId}` 接口控制器（获取特定版本快照）",
+          "实现版本内容加载逻辑（区分元数据 vs. 内容二进制流，支持 `Accept: application/json` / `application/octet-stream`）",
+          "编写单元测试（覆盖版本存在性校验、内容一致性哈希验证、流式响应头设置、404/410 版本不可用状态）",
+          "补充 OpenAPI 文档：定义多 `Accept` 头支持、`Content-Disposition` 示例、ETag 生成规则",
+          "执行端到端测试：从 WP-015 获取 versionId → 调用本接口 → 验证响应内容 SHA256 与存储记录一致",
+          "在 CI 中增加版本快照接口的幂等性验证脚本（重复请求返回相同 ETag）"
+        ],
+        "acceptance_criteria": [
+          "功能达成",
+          "测试通过",
+          "无阻断风险"
+        ],
+        "estimate_points": 6,
+        "risk_level": "low",
+        "risk_reason": "逻辑复用 WP-015 的版本查询能力，且版本内容读取为直通存储（S3/DB BLOB），无中间转换；WP-002（配置中心）已保障存储凭证安全注入"
+      },
+      {
+        "package_id": "WP-018",
+        "tasks": [
+          "设计并实现核心前端页面路由与布局（基于 React/Vue 框架，含响应式适配）",
+          "开发可复用 UI 组件库（Button、Form、Table、Modal 等），遵循设计系统规范",
+          "集成状态管理（如 Redux/Zustand）并完成与 mock API 的数据流联调",
+          "编写组件级单元测试（Jest + RTL），覆盖核心交互逻辑与渲染正确性",
+          "执行端到端 UI 测试（Cypress/Playwright），验证关键用户旅程（如登录→仪表盘→操作流程）",
+          "生成并发布 Storybook 组件文档，支持设计/开发协同评审",
+          "进行无障碍（a11y）合规检查（axe-core 扫描）与基础 WCAG 2.1 AA 修复"
+        ],
+        "acceptance_criteria": [
+          "功能达成",
+          "测试通过",
+          "无阻断风险"
+        ],
+        "estimate_points": 24,
+        "risk_level": "medium",
+        "risk_reason": "依赖 8 个前置工作包（WP-010~WP-017）全部完成且接口契约稳定；若任一依赖项交付延迟或 API 变更未同步，将导致 UI 联调阻塞与返工"
+      },
+      {
+        "package_id": "WP-QUALITY-001",
+        "tasks": [
+          "执行数据库质量审计：校验 Schema 完整性（主键、外键、约束、索引合理性）、字符集/排序规则一致性、敏感字段加密策略落实情况",
+          "运行全量数据迁移回滚验证（基于 WP-006~WP-009 交付的 Migration 脚本），确认幂等性与事务边界正确性",
+          "执行性能基线测试（慢查询分析、执行计划审查、连接池配置验证），输出优化建议并闭环高危项",
+          "生成《数据库质量收敛报告》，包含风险清单、收敛证据（截图/日志/SQL 验证脚本）、遗留问题分级与处置承诺",
+          "组织 DBA 与后端负责人联合评审会，签署质量收敛确认书"
+        ],
+        "acceptance_criteria": [
+          "质量标准达成",
+          "风险收敛完成"
+        ],
+        "estimate_points": 16,
+        "risk_level": "high",
+        "risk_reason": "为非并行化任务（parallelizable: false），且强依赖 WP-006~WP-009 的数据库 Schema 与 Migration 实现质量；若前置包存在隐性缺陷（如缺失外键、迁移脚本破坏数据一致性），将导致收敛失败并引发生产数据风险"
+      },
+      {
+        "package_id": "WP-QUALITY-002",
+        "tasks": [
+          "对 WP-001~WP-005 交付的全部组件（含公共工具库、中间件、SDK 等）执行静态代码扫描（SonarQube），识别重复代码、安全漏洞（CWE）、复杂度超标模块",
+          "补充缺失的组件单元测试覆盖率（目标 ≥85% 分支覆盖），重点覆盖边界条件与异常路径",
+          "执行组件级集成测试（模拟依赖服务），验证组件在真实上下文中的行为一致性",
+          "审查组件文档完整性（JSDoc/API 注释、使用示例、版本兼容性说明），补充缺失内容",
+          "输出《组件质量收敛报告》，明确各组件质量评分、技术债清单、升级/归档建议"
+        ],
+        "acceptance_criteria": [
+          "质量标准达成",
+          "风险收敛完成"
+        ],
+        "estimate_points": 20,
+        "risk_level": "high",
+        "risk_reason": "非并行化任务，且质量收敛深度直接受限于 WP-001~WP-005 的原始实现质量；若前置组件存在未暴露的线程安全缺陷或资源泄漏，静态扫描可能遗漏，需依赖人工深度审查，延长收敛周期"
+      },
+      {
+        "package_id": "WP-QUALITY-003",
+        "tasks": [
+          "基于 WP-010~WP-017 交付的 API 清单，执行 OpenAPI 3.0 规范符合性验证（Swagger Inspector），校验请求/响应结构、状态码、错误码定义一致性",
+          "运行全量 API 合约测试（Pact 或 Dredd），确保 Provider（后端）与 Consumer（前端/WP-018）契约双向满足",
+          "执行 API 安全渗透测试（OWASP API Security Top 10），重点检测 BOLA、BFLA、注入、未授权访问等风险",
+          "生成《API 质量收敛报告》，含合约偏差清单、安全漏洞详情、性能压测结果（95% 延迟 ≤300ms）、修复验证记录",
+          "主导 API 消费方（前端团队）与提供方（后端团队）联合验收会议，签署 API 稳定性承诺书"
+        ],
+        "acceptance_criteria": [
+          "质量标准达成",
+          "风险收敛完成"
+        ],
+        "estimate_points": 18,
+        "risk_level": "high",
+        "risk_reason": "强依赖 WP-010~WP-017 全部完成且 API 实现与文档严格一致；若任一 API 存在未文档化的隐式行为或版本混淆，将导致合约测试失败，且因非并行化特性无法与其他质量活动并行推进，形成关键路径瓶颈"
+      },
+      {
+        "package_id": "WP-QUALITY-004",
+        "tasks": [
+          "执行前端质量专项审计：检查 WP-018 交付物中 Lighthouse 性能（≥90）、SEO、PWA、a11y 得分，定位并修复关键项",
+          "运行全量 UI 自动化测试回归套件（Cypress/Playwright），验证跨浏览器（Chrome/Firefox/Safari）与主流分辨率兼容性",
+          "审查前端构建产物（Webpack/Vite 配置），验证代码分割、Tree-shaking、Source Map 安全策略、生产环境调试禁用等合规性",
+          "执行前端安全扫描（npm audit、Retire.js、Snyk），清理高危依赖，更新至安全版本并验证功能无损",
+          "输出《前端质量收敛报告》，包含各项指标基线数据、修复前后对比、第三方依赖风险摘要、上线前最终签核清单"
+        ],
+        "acceptance_criteria": [
+          "质量标准达成",
+          "风险收敛完成"
+        ],
+        "estimate_points": 12,
+        "risk_level": "medium",
+        "risk_reason": "依赖 WP-018 单独完成（depends_on: [\"WP-018\"]），虽前置依赖单一，但 WP-018 本身为 medium 优先级且含 8 个上游依赖，存在交付延迟风险；此外，前端质量收敛高度依赖自动化工具链稳定性，若 CI 环境或测试基础设施异常，可能导致验证中断"
+      },
+      {
+        "package_id": "WP-TEST-001",
+        "tasks": [
+          "分析系统集成边界与依赖服务接口（含认证、数据格式、超时策略）",
+          "设计并实现可复用的集成测试基类（含服务桩管理、状态清理钩子）",
+          "编写覆盖核心业务流程的集成测试用例（≥5个端到端场景，含成功/失败/异常路径）",
+          "配置测试环境隔离机制（Docker Compose 网络隔离 + 每次测试前清空共享状态）",
+          "集成至 CI 流水线，确保在 `test-integration` 阶段自动触发且超时 ≤8分钟",
+          "生成集成测试覆盖率报告（要求关键路径覆盖率 ≥85%），并归档至质量门禁系统"
+        ],
+        "acceptance_criteria": [
+          "集成测试通过"
+        ],
+        "estimate_points": 8,
+        "risk_level": "medium",
+        "risk_reason": "依赖外部服务稳定性（如认证服务、第三方API），mock精度不足可能导致漏测；需协调多团队联调窗口"
+      },
+      {
+        "package_id": "WP-TEST-002",
+        "tasks": [
+          "基于用户角色与典型业务旅程（如注册→登录→下单→支付→确认）梳理端到端测试场景矩阵",
+          "使用 Playwright（或 Cypress）构建无头浏览器自动化脚本，覆盖 Chrome/Firefox 最新稳定版",
+          "实现跨环境配置管理（dev/staging/uat），支持凭据/URL/等待策略参数化注入",
+          "编写数据准备与清理子流程（含 API 调用预置测试数据、DB 清理脚本联动）",
+          "集成至 CI 流水线，在 `test-e2e` 阶段执行（并发数≤2，防资源争抢），全量执行时间 ≤15分钟",
+          "输出 E2E 执行日志、截图、视频（失败用例）、可追溯性矩阵（映射需求ID）"
+        ],
+        "acceptance_criteria": [
+          "E2E测试通过"
+        ],
+        "estimate_points": 13,
+        "risk_level": "high",
+        "risk_reason": "UI 动态元素定位易受前端重构影响；第三方 CDN/字体加载延迟导致偶发失败；UAT 环境访问权限与网络策略未就绪"
+      },
+      {
+        "package_id": "WP-TEST-003",
+        "tasks": [
+          "定义性能基线指标（P95 响应时间 ≤800ms，TPS ≥120，错误率 <0.1%）及压测场景（登录、查询、提交）",
+          "使用 k6 构建可配置压测脚本（支持阶梯式并发、持续负载、峰值冲击模式）",
+          "部署监控探针：应用层（Prometheus + Grafana）、基础设施层（CPU/Mem/Disk I/O）、数据库慢查询分析",
+          "执行三轮基准测试（基线/优化后/回归），输出性能对比报告（含瓶颈定位：如 DB 连接池耗尽、GC 频繁）",
+          "提出并验证至少 2 项性能优化建议（如缓存策略调整、SQL 索引优化、异步化改造）",
+          "将性能阈值嵌入 CI 流水线（`test-perf` 阶段失败即阻断发布）"
+        ],
+        "acceptance_criteria": [
+          "性能指标达标"
+        ],
+        "estimate_points": 10,
+        "risk_level": "medium",
+        "risk_reason": "生产级数据脱敏后压测数据代表性不足；压测工具与真实流量模型存在偏差；监控链路未完全打通导致根因分析延迟"
+      },
+      {
+        "package_id": "WP-TEST-004",
+        "tasks": [
+          "配置 SAST 工具（SonarQube）扫描规则集（OWASP Top 10 + 自定义敏感信息正则）",
+          "集成 DAST 工具（ZAP）对 staging 环境执行被动+主动扫描（含认证会话保持）",
+          "执行 SCA（软件成分分析）扫描（Syft + Grype），识别第三方库已知 CVE（CVSS ≥7.0 必修）",
+          "对高危漏洞（如 SQLi、XSS、硬编码密钥）进行人工复核与误报剔除",
+          "输出安全扫描报告（含漏洞详情、修复建议、POC 验证步骤），提交至安全治理平台",
+          "在 CI 中配置 `test-security` 阶段：阻断 CVSS ≥9.0 漏洞，警告 7.0–8.9 漏洞并生成技术债卡片"
+        ],
+        "acceptance_criteria": [
+          "安全扫描通过"
+        ],
+        "estimate_points": 8,
+        "risk_level": "medium",
+        "risk_reason": "DAST 扫描可能触发生产环境风控策略（如账号锁定）；部分框架漏洞（如 Spring 补丁版本）需协调基础镜像升级，存在跨团队依赖"
+      },
+      {
+        "package_id": "WP-DELIVERY-001",
+        "tasks": [
+          "制定 UAT 计划（含测试周期、环境就绪检查表、准入准出标准、回滚预案）",
+          "部署 UAT 专用环境（独立 DB、隔离消息队列、Mock 外部依赖），完成全链路冒烟测试",
+          "编制 UAT 用户手册（含操作指引、预期结果、常见问题解答、问题提报模板）",
+          "组织 UAT 启动会，对业务方进行系统演示与测试培训（含权限分配、数据准备说明）",
+          "全程支持 UAT 执行：实时响应缺陷（SLA ≤2h 响应，P1 缺陷 ≤4h 修复）、记录验收意见、更新测试用例",
+          "汇总 UAT 问题清单与修复验证报告，组织签字确认会议，签署《UAT 验收确认书》"
+        ],
+        "acceptance_criteria": [
+          "UAT签字确认"
+        ],
+        "estimate_points": 5,
+        "risk_level": "low",
+        "risk_reason": "业务方参与度不可控（如测试人员缺席、反馈延迟）；UAT 环境偶发不稳定影响进度；签字流程涉及多层级审批，存在行政延迟"
+      },
+      {
+        "package_id": "WP-DELIVERY-002",
+        "tasks": [
+          "汇总并校验全部交付文档清单（含需求规格、设计文档、API文档、测试报告、运维手册、安全合规声明）",
+          "执行文档完整性检查：确认每份文档版本号、签署页、发布日期、保密等级标识符合归档规范",
+          "将文档按ISO/IEC 27001归档标准分类上传至企业知识库（Confluence + SharePoint双备份），设置访问权限与保留策略",
+          "生成《文档移交签收单》并完成客户方与项目组双方电子签章归档",
+          "更新项目资产登记表（Project Asset Register），标记所有文档状态为“Archived – Handover Completed”"
+        ],
+        "acceptance_criteria": [
+          "所有文档归档"
+        ],
+        "estimate_points": 5,
+        "risk_level": "medium",
+        "risk_reason": "文档归档依赖上游测试报告（WP-TEST-001~004）的最终定稿版本；若任一测试报告存在返工或延迟交付，将导致移交阻塞且无缓冲时间窗口"
+      },
+      {
+        "package_id": "WP-DELIVERY-003",
+        "tasks": [
+          "验证生产环境部署包（Docker镜像、Helm Chart、基础设施即代码IaC模板）与通过UAT的最终构建版本一致（SHA256校验+Git commit hash比对）",
+          "执行生产就绪检查清单（Production Readiness Review, PRR）：包括监控探针启用、日志采集配置、告警阈值设定、灾备切换路径验证、密钥轮换状态确认",
+          "完成灰度发布策略审批与配置（含流量切分比例、回滚触发条件、健康检查端点验证脚本）",
+          "向SRE团队移交运维交接包（含启动/停止/扩缩容脚本、应急预案SOP、核心指标看板链接）并获取书面接收确认",
+          "在发布管理平台（如Jira Service Management）创建正式Release Ticket，关联所有前置测试工作包及变更控制记录"
+        ],
+        "acceptance_criteria": [
+          "生产环境部署就绪"
+        ],
+        "estimate_points": 8,
+        "risk_level": "high",
+        "risk_reason": "生产环境就绪高度依赖外部团队协同（SRE、InfraOps、Security）响应时效；任一环节未完成PRR签字或配置未闭环，将导致发布窗口失效，且无替代发布路径"
+      }
+    ],
+    "review_report": {
+      "status": "passed_with_warnings",
+      "score": 85,
+      "issues": [
+        "部分任务描述中缺少对依赖项的版本约束或接口契约说明，如 WP-010 和 WP-011 对 WP-001~WP-005 的依赖未明确接口版本。",
+        "工作包 WP-DELIVERY-002 和 WP-DELIVERY-003 的风险等级分别为 medium 和 high，但未明确说明如何应对这些风险的具体缓解措施。",
+        "部分任务描述较为笼统，如 '编写数据准备与清理子流程'，建议细化具体实现方式或工具选择。",
+        "前端质量收敛（WP-QUALITY-004）依赖于 WP-018，但未说明 WP-018 的交付进度如何纳入整体项目计划。",
+        "WP-006 和 WP-007 的任务中均涉及数据库迁移脚本，但未提及迁移回滚策略或数据备份方案。",
+        "缺少版本控制策略说明（如分支模型、合并策略、代码审查流程等），建议补充相关内容。",
+        "部分工作包的验收标准不够具体，例如 '集成测试通过'、'E2E测试通过' 等，缺乏量化指标或明确的通过条件。",
+        "未明确项目交付后的支持与维护计划，尤其是生产环境就绪后的监控与响应机制。",
+        "未提及各工作包之间的依赖关系是否已在项目计划中明确并进行排期协调。",
+        "WP-012 中提到的文件上传涉及 IO 安全问题，但未明确说明如何处理恶意文件检测（如由其他包提供）及具体实现方式。",
+        "WP-016 风险中提到需要与搜索服务对齐 OpenAPI spec 版本，但未提及具体的版本号或同步机制，建议明确依赖版本及沟通计划。",
+        "部分任务描述较为笼统（如 '审查组件文档完整性'），建议细化具体检查项和验收标准。",
+        "WP-014 的风险描述中提到依赖 WP-005（通用文件服务），但未明确说明该依赖是否已进入开发或测试阶段，建议补充依赖状态。",
+        "开发计划中未体现版本控制策略或文档更新机制，可能导致归档文档与实际内容不一致。",
+        "WP-003 的风险描述中提到依赖 documents 表结构稳定性，但未明确说明与 WP-007 的集成测试计划。",
+        "WP-004 的风险描述提到接口契约不一致可能导致阻塞，但未提及接口版本管理或接口文档的同步机制。",
+        "WP-017 的任务中提到 '直通存储'，但未说明具体实现方式（如 S3 或 DB BLOB），建议补充技术选型细节。",
+        "所有工作包均未提及部署策略或灰度发布计划，建议补充上线流程和回滚机制。",
+        "部分任务描述中缺少具体的交付物或验收标准，例如‘执行文档完整性检查’未说明如何验证完整性。",
+        "WP-QUALITY-004 的风险描述中提到 'depends_on: [\"WP-018\"]'，但该字段在 YAML 中未定义，可能为格式错误。",
+        "部分工作包的任务描述中缺乏对性能、可扩展性、安全性等非功能性需求的考虑，例如 WP-011 的缓存穿透防护虽有提及，但未说明具体实现策略。",
+        "未提及质量门禁机制（如代码覆盖率、测试通过率、安全扫描结果等）是否作为上线前提条件。",
+        "UAT 支持（WP-DELIVERY-001）中的 SLA 响应时间（≤2h）和修复时间（P1 ≤4h）需要与业务方达成一致并纳入合同或协议中。",
+        "安全测试（WP-TEST-004）中提到“CVSS ≥9.0 漏洞阻断发布”，但未说明如何处理这些漏洞以及是否有替代方案。",
+        "未提及文档管理策略（如 API 文档的维护机制、更新频率等），建议补充相关计划。",
+        "未提及与相关方（如客户、SRE团队）的沟通计划，特别是在依赖外部团队的情况下。",
+        "WP-005 的安全合规要求高，但未明确提及数据加密存储、审计日志保留周期等具体措施。",
+        "WP-012 的风险等级为 high，但未明确列出具体的集成测试用例或与 WP-INFRA-002 的安全扫描能力对接方案。",
+        "WP-001 和 WP-002 的风险说明中提到依赖其他模块（如 WP-006/007/008/009），但未在工作包列表中明确列出这些依赖项，建议补充依赖关系图或注释。",
+        "性能测试（WP-TEST-003）中提到“三轮基准测试”，但未说明每轮测试的目标和预期结果。",
+        "WP-010 的任务中提到 Swagger Annotations 生成 OpenAPI 文档，但未提及文档的验证机制或是否纳入 CI/CD 流程。",
+        "部分工作包（如 WP-004）的任务描述中缺少对性能测试或压力测试的具体安排。",
+        "WP-QUALITY-001 和 WP-QUALITY-002 的依赖关系描述不够清晰，未明确说明如何处理前置工作包的隐性缺陷。",
+        "部分任务描述较为笼统，例如 '编写 CI 流水线定义文件'，建议细化具体实现方式（如使用 GitHub Actions 或 GitLab CI）以提升可执行性。",
+        "部分工作包的测试用例描述较泛，如 WP-013 中的单元测试未明确覆盖哪些具体场景，建议细化测试用例内容。",
+        "WP-TEST-001 和 WP-TEST-002 的风险描述中提到外部依赖问题，但未明确说明如何与相关团队进行协调和沟通机制。",
+        "WP-001 和 WP-002 的验收标准中未明确测试覆盖率要求或性能指标，建议补充。"
+      ],
+      "suggestions": [
+        "为 WP-004 添加接口版本控制和文档同步机制，以减少接口不一致的风险。",
+        "在项目计划中增加部署策略说明，包括 CI/CD 流水线配置、环境隔离、灰度发布步骤等。",
+        "补充版本控制与发布管理策略，包括分支策略、代码审查流程和发布节奏。",
+        "在交付后明确后续支持流程，包括运维交接后的监控、问题响应和变更管理机制。",
+        "增加版本控制和文档更新机制，确保归档文档与实际版本保持同步。",
+        "针对 WP-012 的文件上传功能，建议补充与安全扫描模块（如 WP-INFRA-002）的对接逻辑和异常处理机制。",
+        "将 UAT 的 SLA 和响应时间要求写入项目管理文档，并与业务方确认。",
+        "对于高风险工作包（如 WP-012），建议补充详细的集成测试计划和依赖项对接方案，并明确与其他模块的接口契约。",
+        "细化任务描述，增加可衡量的验收标准，提升任务执行的可追踪性。",
+        "补充与外部依赖团队的沟通机制，如定期同步会议、依赖项状态跟踪表等。",
+        "制定安全漏洞处理流程，包括漏洞修复优先级、临时缓解措施、回滚策略等。",
+        "明确各工作包间的依赖关系，并在整体项目计划中体现优先级和资源分配。",
+        "细化每项任务的交付物和验收标准，确保可衡量和可验证。",
+        "制定详细的沟通计划，特别是针对依赖外部团队的任务，明确责任人和时间节点。",
+        "为每个高风险工作包（如 WP-014、WP-016）增加依赖项状态跟踪表，确保依赖项完成后再启动开发。",
+        "为每个工作包定义更具体的验收标准，例如：集成测试覆盖率≥85%、E2E测试通过率≥95%、性能指标达标率100%等。",
+        "补充 WP-005 的安全合规细节，如密码哈希算法、SSL 配置、日志保留策略等。",
+        "补充关键依赖项的技术实现细节，如 WP-017 中的存储类型和访问方式。",
+        "引入质量门禁机制，将关键质量指标作为项目推进的硬性约束。",
+        "补充每个工作包的风险缓解策略，包括备用方案或关键路径的缓冲时间。",
+        "在开发计划中加入对 WP-018 的交付里程碑管理，确保其进度不影响后续质量收敛工作。",
+        "建议为 OpenAPI 文档的生成和验证建立自动化流程，确保文档与代码的一致性。",
+        "考虑为 API 接口定义统一的错误码规范，并在各工作包中统一使用，提升接口一致性。",
+        "细化每个任务的具体实施步骤，特别是涉及工具链配置的部分（如 CI/CD 配置、日志系统集成等）。",
+        "建议为每个工作包指定负责人或团队，提高责任明确性和协作效率。",
+        "在验收标准中加入更具体的指标（如测试覆盖率、响应时间、错误率等）以衡量质量。",
+        "细化测试用例描述，特别是异常路径和边界条件，确保可验证性和可重复性。",
+        "细化任务描述，例如指定使用什么工具进行数据准备、脚本语言、测试框架等，以提高可执行性。",
+        "为 WP-003 和 WP-007 增加集成测试计划，确保表结构变更时服务层能及时响应。",
+        "建议增加工作包之间的依赖关系说明，帮助团队理解整体开发顺序和依赖关系。",
+        "修正 YAML 格式中的语法问题，确保 'depends_on' 字段正确使用。",
+        "在性能测试计划中明确每轮测试的目标（如基线测试、优化后测试、回归测试）及预期结果。",
+        "明确各质量工作包与前置工作的依赖关系，特别是对隐性缺陷的应对策略。",
+        "在依赖项管理方面，应明确各工作包之间的接口版本控制，避免因前置模块变更导致的集成问题。",
+        "为 WP-006 和 WP-007 增加数据库迁移回滚策略和数据备份流程，提升容错能力。",
+        "在任务描述中增加对非功能性需求（如性能、安全性、可维护性）的考虑，特别是在涉及用户认证、数据存储、文件处理等关键环节。",
+        "在开发计划中增加性能测试、压力测试及负载测试的阶段性任务。"
+      ],
+      "summary": "评审完成。共评审 7 个分块，平均得分 85。"
+    },
+    "documents": {
+      "development_overview_md": "# 项目分解总览\n\n生成时间: 2026-02-27T13:21:56.518612\n\n## 覆盖度\n- 总单元: 18\n- 已覆盖: 18\n- 覆盖率: 100.00%\n\n## 并发批次\n- 批次1: WP-INFRA-001, WP-INFRA-002, WP-INFRA-003\n- 批次2: WP-006, WP-007, WP-008, WP-009\n- 批次3: WP-001, WP-002, WP-003, WP-004, WP-005, WP-QUALITY-001\n- 批次4: WP-010, WP-011, WP-012, WP-013, WP-014, WP-015, WP-016, WP-017, WP-QUALITY-002\n- 批次5: WP-018, WP-QUALITY-003\n- 批次6: WP-QUALITY-004\n- 批次7: WP-TEST-001, WP-TEST-002, WP-TEST-003, WP-TEST-004\n- 批次8: WP-DELIVERY-001, WP-DELIVERY-002, WP-DELIVERY-003\n\n## 工作包列表\n- WP-INFRA-001 infrastructure/scaffold::RepoSetup 单元数:0\n- WP-INFRA-002 infrastructure/ci::PipelineSetup 单元数:0\n- WP-INFRA-003 infrastructure/common::CommonLib 单元数:0\n- WP-001 system/component::DocumentStorageService 单元数:1\n- WP-002 system/component::DocumentPreviewService 单元数:1\n- WP-003 system/component::DocumentSearchService 单元数:1\n- WP-004 system/component::APIGateway 单元数:1\n- WP-005 system/component::UserManagementService 单元数:1\n- WP-006 Relational/db::users 单元数:1\n- WP-007 Relational/db::documents 单元数:1\n- WP-008 Relational/db::document_versions 单元数:1\n- WP-009 Relational/db::document_search_index 单元数:1\n- WP-010 RESTful/api::POST /api/v1/users 单元数:1\n- WP-011 RESTful/api::GET /api/v1/users/{userId} 单元数:1\n- WP-012 RESTful/api::POST /api/v1/documents 单元数:1\n- WP-013 RESTful/api::GET /api/v1/documents/{documentId} 单元数:1\n- WP-014 RESTful/api::GET /api/v1/documents/{documentId}/preview 单元数:1\n- WP-015 RESTful/api::GET /api/v1/documents/{documentId}/versions 单元数:1\n- WP-016 RESTful/api::GET /api/v1/documents/{documentId}/search 单元数:1\n- WP-017 RESTful/api::GET /api/v1/documents/{documentId}/versions/{versionId} 单元数:1\n- WP-018 web/frontend::Frontend UI 单元数:1\n- WP-QUALITY-001 quality/db::Convergence 单元数:0\n- WP-QUALITY-002 quality/component::Convergence 单元数:0\n- WP-QUALITY-003 quality/api::Convergence 单元数:0\n- WP-QUALITY-004 quality/frontend::Convergence 单元数:0\n- WP-TEST-001 testing/integration::Suites 单元数:0\n- WP-TEST-002 testing/e2e::Scenarios 单元数:0\n- WP-TEST-003 testing/perf::Benchmarks 单元数:0\n- WP-TEST-004 testing/security::Scan 单元数:0\n- WP-DELIVERY-001 delivery/uat::Support 单元数:0\n- WP-DELIVERY-002 delivery/docs::Handover 单元数:0\n- WP-DELIVERY-003 delivery/release::Ready 单元数:0\n\n## 计划评审报告\n- 得分: 85\n- 结论: 评审完成。共评审 7 个分块，平均得分 85。\n- 发现问题:\n  - 部分任务描述中缺少对依赖项的版本约束或接口契约说明，如 WP-010 和 WP-011 对 WP-001~WP-005 的依赖未明确接口版本。\n  - 工作包 WP-DELIVERY-002 和 WP-DELIVERY-003 的风险等级分别为 medium 和 high，但未明确说明如何应对这些风险的具体缓解措施。\n  - 部分任务描述较为笼统，如 '编写数据准备与清理子流程'，建议细化具体实现方式或工具选择。\n  - 前端质量收敛（WP-QUALITY-004）依赖于 WP-018，但未说明 WP-018 的交付进度如何纳入整体项目计划。\n  - WP-006 和 WP-007 的任务中均涉及数据库迁移脚本，但未提及迁移回滚策略或数据备份方案。\n  - 缺少版本控制策略说明（如分支模型、合并策略、代码审查流程等），建议补充相关内容。\n  - 部分工作包的验收标准不够具体，例如 '集成测试通过'、'E2E测试通过' 等，缺乏量化指标或明确的通过条件。\n  - 未明确项目交付后的支持与维护计划，尤其是生产环境就绪后的监控与响应机制。\n  - 未提及各工作包之间的依赖关系是否已在项目计划中明确并进行排期协调。\n  - WP-012 中提到的文件上传涉及 IO 安全问题，但未明确说明如何处理恶意文件检测（如由其他包提供）及具体实现方式。\n  - WP-016 风险中提到需要与搜索服务对齐 OpenAPI spec 版本，但未提及具体的版本号或同步机制，建议明确依赖版本及沟通计划。\n  - 部分任务描述较为笼统（如 '审查组件文档完整性'），建议细化具体检查项和验收标准。\n  - WP-014 的风险描述中提到依赖 WP-005（通用文件服务），但未明确说明该依赖是否已进入开发或测试阶段，建议补充依赖状态。\n  - 开发计划中未体现版本控制策略或文档更新机制，可能导致归档文档与实际内容不一致。\n  - WP-003 的风险描述中提到依赖 documents 表结构稳定性，但未明确说明与 WP-007 的集成测试计划。\n  - WP-004 的风险描述提到接口契约不一致可能导致阻塞，但未提及接口版本管理或接口文档的同步机制。\n  - WP-017 的任务中提到 '直通存储'，但未说明具体实现方式（如 S3 或 DB BLOB），建议补充技术选型细节。\n  - 所有工作包均未提及部署策略或灰度发布计划，建议补充上线流程和回滚机制。\n  - 部分任务描述中缺少具体的交付物或验收标准，例如‘执行文档完整性检查’未说明如何验证完整性。\n  - WP-QUALITY-004 的风险描述中提到 'depends_on: [\"WP-018\"]'，但该字段在 YAML 中未定义，可能为格式错误。\n  - 部分工作包的任务描述中缺乏对性能、可扩展性、安全性等非功能性需求的考虑，例如 WP-011 的缓存穿透防护虽有提及，但未说明具体实现策略。\n  - 未提及质量门禁机制（如代码覆盖率、测试通过率、安全扫描结果等）是否作为上线前提条件。\n  - UAT 支持（WP-DELIVERY-001）中的 SLA 响应时间（≤2h）和修复时间（P1 ≤4h）需要与业务方达成一致并纳入合同或协议中。\n  - 安全测试（WP-TEST-004）中提到“CVSS ≥9.0 漏洞阻断发布”，但未说明如何处理这些漏洞以及是否有替代方案。\n  - 未提及文档管理策略（如 API 文档的维护机制、更新频率等），建议补充相关计划。\n  - 未提及与相关方（如客户、SRE团队）的沟通计划，特别是在依赖外部团队的情况下。\n  - WP-005 的安全合规要求高，但未明确提及数据加密存储、审计日志保留周期等具体措施。\n  - WP-012 的风险等级为 high，但未明确列出具体的集成测试用例或与 WP-INFRA-002 的安全扫描能力对接方案。\n  - WP-001 和 WP-002 的风险说明中提到依赖其他模块（如 WP-006/007/008/009），但未在工作包列表中明确列出这些依赖项，建议补充依赖关系图或注释。\n  - 性能测试（WP-TEST-003）中提到“三轮基准测试”，但未说明每轮测试的目标和预期结果。\n  - WP-010 的任务中提到 Swagger Annotations 生成 OpenAPI 文档，但未提及文档的验证机制或是否纳入 CI/CD 流程。\n  - 部分工作包（如 WP-004）的任务描述中缺少对性能测试或压力测试的具体安排。\n  - WP-QUALITY-001 和 WP-QUALITY-002 的依赖关系描述不够清晰，未明确说明如何处理前置工作包的隐性缺陷。\n  - 部分任务描述较为笼统，例如 '编写 CI 流水线定义文件'，建议细化具体实现方式（如使用 GitHub Actions 或 GitLab CI）以提升可执行性。\n  - 部分工作包的测试用例描述较泛，如 WP-013 中的单元测试未明确覆盖哪些具体场景，建议细化测试用例内容。\n  - WP-TEST-001 和 WP-TEST-002 的风险描述中提到外部依赖问题，但未明确说明如何与相关团队进行协调和沟通机制。\n  - WP-001 和 WP-002 的验收标准中未明确测试覆盖率要求或性能指标，建议补充。\n- 改进建议:\n  - 为 WP-004 添加接口版本控制和文档同步机制，以减少接口不一致的风险。\n  - 在项目计划中增加部署策略说明，包括 CI/CD 流水线配置、环境隔离、灰度发布步骤等。\n  - 补充版本控制与发布管理策略，包括分支策略、代码审查流程和发布节奏。\n  - 在交付后明确后续支持流程，包括运维交接后的监控、问题响应和变更管理机制。\n  - 增加版本控制和文档更新机制，确保归档文档与实际版本保持同步。\n  - 针对 WP-012 的文件上传功能，建议补充与安全扫描模块（如 WP-INFRA-002）的对接逻辑和异常处理机制。\n  - 将 UAT 的 SLA 和响应时间要求写入项目管理文档，并与业务方确认。\n  - 对于高风险工作包（如 WP-012），建议补充详细的集成测试计划和依赖项对接方案，并明确与其他模块的接口契约。\n  - 细化任务描述，增加可衡量的验收标准，提升任务执行的可追踪性。\n  - 补充与外部依赖团队的沟通机制，如定期同步会议、依赖项状态跟踪表等。\n  - 制定安全漏洞处理流程，包括漏洞修复优先级、临时缓解措施、回滚策略等。\n  - 明确各工作包间的依赖关系，并在整体项目计划中体现优先级和资源分配。\n  - 细化每项任务的交付物和验收标准，确保可衡量和可验证。\n  - 制定详细的沟通计划，特别是针对依赖外部团队的任务，明确责任人和时间节点。\n  - 为每个高风险工作包（如 WP-014、WP-016）增加依赖项状态跟踪表，确保依赖项完成后再启动开发。\n  - 为每个工作包定义更具体的验收标准，例如：集成测试覆盖率≥85%、E2E测试通过率≥95%、性能指标达标率100%等。\n  - 补充 WP-005 的安全合规细节，如密码哈希算法、SSL 配置、日志保留策略等。\n  - 补充关键依赖项的技术实现细节，如 WP-017 中的存储类型和访问方式。\n  - 引入质量门禁机制，将关键质量指标作为项目推进的硬性约束。\n  - 补充每个工作包的风险缓解策略，包括备用方案或关键路径的缓冲时间。\n  - 在开发计划中加入对 WP-018 的交付里程碑管理，确保其进度不影响后续质量收敛工作。\n  - 建议为 OpenAPI 文档的生成和验证建立自动化流程，确保文档与代码的一致性。\n  - 考虑为 API 接口定义统一的错误码规范，并在各工作包中统一使用，提升接口一致性。\n  - 细化每个任务的具体实施步骤，特别是涉及工具链配置的部分（如 CI/CD 配置、日志系统集成等）。\n  - 建议为每个工作包指定负责人或团队，提高责任明确性和协作效率。\n  - 在验收标准中加入更具体的指标（如测试覆盖率、响应时间、错误率等）以衡量质量。\n  - 细化测试用例描述，特别是异常路径和边界条件，确保可验证性和可重复性。\n  - 细化任务描述，例如指定使用什么工具进行数据准备、脚本语言、测试框架等，以提高可执行性。\n  - 为 WP-003 和 WP-007 增加集成测试计划，确保表结构变更时服务层能及时响应。\n  - 建议增加工作包之间的依赖关系说明，帮助团队理解整体开发顺序和依赖关系。\n  - 修正 YAML 格式中的语法问题，确保 'depends_on' 字段正确使用。\n  - 在性能测试计划中明确每轮测试的目标（如基线测试、优化后测试、回归测试）及预期结果。\n  - 明确各质量工作包与前置工作的依赖关系，特别是对隐性缺陷的应对策略。\n  - 在依赖项管理方面，应明确各工作包之间的接口版本控制，避免因前置模块变更导致的集成问题。\n  - 为 WP-006 和 WP-007 增加数据库迁移回滚策略和数据备份流程，提升容错能力。\n  - 在任务描述中增加对非功能性需求（如性能、安全性、可维护性）的考虑，特别是在涉及用户认证、数据存储、文件处理等关键环节。\n  - 在开发计划中增加性能测试、压力测试及负载测试的阶段性任务。"
+    }
+  },
+  "end_time": "2026-02-27T13:21:56.518715"
+}

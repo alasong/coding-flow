@@ -1,8 +1,12 @@
 import asyncio
+import threading
+import logging
 from typing import Dict, Any, Optional
-from fastapi import FastAPI, Body
+from fastapi import FastAPI, Body, Depends
 from fastapi import WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import JSONResponse
 import os
 
 from workflow.master_workflow import MasterWorkflow
@@ -14,32 +18,73 @@ from workflow.deployment_workflow import DeploymentWorkflow
 from config import OUTPUT_DIR, MASTER_WORKFLOW_CONFIG
 from infra.persistence import save_task_summary, load_task_summary, save_task_detail
 from infra.queue import TaskQueue
+from infra.auth import verify_api_key, verify_ws_token
 from utils.common import get_project_slug
+from utils.command_executor import safe_execute, CommandExecutionError
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
+# 全局状态并发保护
 tasks: Dict[str, Any] = {}
+_tasks_lock = threading.RLock()
 TASKS_FILE = os.path.join(OUTPUT_DIR, "tasks_index.json")
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 def _save_tasks():
-    try:
-        save_task_summary(OUTPUT_DIR, tasks)
-    except Exception:
-        pass
+    with _tasks_lock:
+        try:
+            save_task_summary(OUTPUT_DIR, tasks)
+        except Exception as e:
+            logger.error(f"保存任务失败: {e}", exc_info=True)
 
 def _load_tasks():
-    try:
-        loaded = load_task_summary(OUTPUT_DIR)
-        for tid, meta in loaded.items():
-            t = tasks.setdefault(tid, {})
-            t.update(meta)
-    except Exception:
-        pass
+    with _tasks_lock:
+        try:
+            loaded = load_task_summary(OUTPUT_DIR)
+            for tid, meta in loaded.items():
+                t = tasks.setdefault(tid, {})
+                t.update(meta)
+        except Exception as e:
+            logger.error(f"加载任务失败: {e}", exc_info=True)
 
 _load_tasks()
 ws_clients = set()
+
+
+# 文件访问控制中间件
+class FileAccessMiddleware(BaseHTTPMiddleware):
+    """限制文件访问，防止目录遍历攻击"""
+
+    BLOCKED_EXTENSIONS = {'.env', '.key', '.pem', '.secret', '.credentials'}
+    BLOCKED_PATTERNS = {'../', '..\\'}
+
+    async def dispatch(self, request, call_next):
+        path = request.url.path
+
+        # 检查路径遍历攻击
+        for pattern in self.BLOCKED_PATTERNS:
+            if pattern in path:
+                return JSONResponse(
+                    {"error": "Invalid path"},
+                    status_code=400
+                )
+
+        # 检查敏感文件扩展名
+        for ext in self.BLOCKED_EXTENSIONS:
+            if path.endswith(ext):
+                return JSONResponse(
+                    {"error": "Access denied"},
+                    status_code=403
+                )
+
+        return await call_next(request)
+
+
+# 添加中间件
+app.add_middleware(FileAccessMiddleware)
 
 app.mount("/ui", StaticFiles(directory="dashboard", html=True), name="ui")
 # 暴露输出文件目录，便于界面直接访问报告与工件
@@ -103,9 +148,10 @@ async def run_pipeline(task_id: str, input_text: str, steps: Dict[str, bool] = N
     os.makedirs(project_output_dir, exist_ok=True)
     mw = MasterWorkflow()
     mw.context["project_output_dir"] = project_output_dir
-    tmeta = tasks.setdefault(task_id, {})
-    tmeta["project_slug"] = project_slug
-    tmeta["project_dir_name"] = os.path.basename(project_output_dir)
+    with _tasks_lock:
+        tmeta = tasks.setdefault(task_id, {})
+        tmeta["project_slug"] = project_slug
+        tmeta["project_dir_name"] = os.path.basename(project_output_dir)
 
     enabled = _compute_enabled_steps(steps, start, end)
 
@@ -186,7 +232,7 @@ async def run_pipeline(task_id: str, input_text: str, steps: Dict[str, bool] = N
         pass
 
 
-@app.post("/run")
+@app.post("/run", dependencies=[Depends(verify_api_key)])
 async def run(payload: Dict[str, Any] = Body(...)):
     import uuid
     task_id = uuid.uuid4().hex[:8]
@@ -216,7 +262,7 @@ async def run(payload: Dict[str, Any] = Body(...)):
     return {"status": "started", "task_id": task_id}
 
 
-@app.get("/status")
+@app.get("/status", dependencies=[Depends(verify_api_key)])
 async def status():
     if not tasks:
         _load_tasks()
@@ -335,7 +381,12 @@ async def _periodic_broadcast():
 
 
 @app.websocket("/ws")
-async def websocket_endpoint(ws: WebSocket):
+async def websocket_endpoint(ws: WebSocket, token: Optional[str] = None):
+    # 验证 token
+    if not verify_ws_token(token or ""):
+        await ws.close(code=4001, reason="Unauthorized")
+        return
+    
     await ws.accept()
     ws_clients.add(ws)
     try:
@@ -345,9 +396,10 @@ async def websocket_endpoint(ws: WebSocket):
         ws_clients.discard(ws)
 
 
-@app.post("/deploy/start/{task_id}")
+@app.post("/deploy/start/{task_id}", dependencies=[Depends(verify_api_key)])
 async def deploy_start(task_id: str):
-    t = tasks.get(task_id)
+    with _tasks_lock:
+        t = tasks.get(task_id)
     if not t:
         return {"error": "not_found"}
     dep = t.get("results", {}).get("deployment", {})
@@ -355,24 +407,27 @@ async def deploy_start(task_id: str):
     docker_dir = os.path.join(out, "docker") if out else None
     if docker_dir and os.path.exists(os.path.join(docker_dir, "docker-compose.yml")):
         try:
-            import subprocess
-            subprocess.run("docker compose up -d", cwd=docker_dir, shell=True, check=False)
-            # 保留部署后的环境入口
-            env = dep.get("final_result", {}).get("env", {})
-            env["compose_started"] = True
-            t["env"] = env
-        except Exception:
-            subprocess.run("docker-compose up -d", cwd=docker_dir, shell=True, check=False)
-            env = dep.get("final_result", {}).get("env", {})
-            env["compose_started"] = True
-            t["env"] = env
+            returncode, stdout, stderr = safe_execute("docker compose up -d", docker_dir)
+            if returncode == 0:
+                # 保留部署后的环境入口
+                env = dep.get("final_result", {}).get("env", {})
+                env["compose_started"] = True
+                with _tasks_lock:
+                    t["env"] = env
+            else:
+                logger.error(f"部署命令执行失败: {stderr}")
+                return {"error": "command_failed", "detail": stderr}
+        except CommandExecutionError as e:
+            logger.error(f"部署命令执行失败: {e}")
+            return {"error": "command_execution_failed", "detail": str(e)}
         return {"status": "started", "env": t.get("env", {})}
     return {"error": "compose_not_found"}
 
 
-@app.post("/deploy/stop/{task_id}")
+@app.post("/deploy/stop/{task_id}", dependencies=[Depends(verify_api_key)])
 async def deploy_stop(task_id: str):
-    t = tasks.get(task_id)
+    with _tasks_lock:
+        t = tasks.get(task_id)
     if not t:
         return {"error": "not_found"}
     dep = t.get("results", {}).get("deployment", {})
@@ -380,15 +435,17 @@ async def deploy_stop(task_id: str):
     docker_dir = os.path.join(out, "docker") if out else None
     if docker_dir and os.path.exists(os.path.join(docker_dir, "docker-compose.yml")):
         try:
-            import subprocess
-            subprocess.run("docker compose down", cwd=docker_dir, shell=True, check=False)
-            env = dep.get("final_result", {}).get("env", {})
-            env["compose_started"] = False
-            t["env"] = env
-        except Exception:
-            subprocess.run("docker-compose down", cwd=docker_dir, shell=True, check=False)
-            env = dep.get("final_result", {}).get("env", {})
-            env["compose_started"] = False
-            t["env"] = env
+            returncode, stdout, stderr = safe_execute("docker compose down", docker_dir)
+            if returncode == 0:
+                env = dep.get("final_result", {}).get("env", {})
+                env["compose_started"] = False
+                with _tasks_lock:
+                    t["env"] = env
+            else:
+                logger.error(f"停止部署命令执行失败: {stderr}")
+                return {"error": "command_failed", "detail": stderr}
+        except CommandExecutionError as e:
+            logger.error(f"停止部署命令执行失败: {e}")
+            return {"error": "command_execution_failed", "detail": str(e)}
         return {"status": "stopped"}
     return {"error": "compose_not_found"}

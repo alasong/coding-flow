@@ -2,106 +2,28 @@
 架构分析Agent - 负责系统架构设计和技术选型
 """
 
-from agentscope.agent import AgentBase
+from agents.base_agent import BaseAgent
 from typing import Dict, List, Any
 import json
 import logging
 from datetime import datetime
 import asyncio
-from config import DASHSCOPE_API_KEY, OPENAI_API_KEY, DEFAULT_MODEL
+from config import DEFAULT_MODEL
 
 logger = logging.getLogger(__name__)
 
-class ArchitectureAnalyzerAgent(AgentBase):
+
+class ArchitectureAnalyzerAgent(BaseAgent):
     """架构分析Agent - 负责系统架构设计和技术选型"""
     
-    def __init__(self, name: str, model_config_name: str):
-        super().__init__()
-        self.name = name
-        self.model_config_name = model_config_name
-        
-        # 配置真实的大模型API
-        if DASHSCOPE_API_KEY or OPENAI_API_KEY:
-            try:
-                if DASHSCOPE_API_KEY:
-                    from agentscope.model import DashScopeChatModel
-                    self.model = DashScopeChatModel(
-                        model_name="qwen-turbo",
-                        api_key=DASHSCOPE_API_KEY,
-                        generate_kwargs={"temperature": 0.3, "max_tokens": 2000}
-                    )
-                    logger.info(f"[{self.name}] 成功初始化DashScope模型: qwen-turbo")
-                else:
-                    from agentscope.model import OpenAIChatModel
-                    self.model = OpenAIChatModel(
-                        model_name=DEFAULT_MODEL,
-                        api_key=OPENAI_API_KEY,
-                        generate_kwargs={"temperature": 0.3, "max_tokens": 2000}
-                    )
-                    logger.info(f"[{self.name}] 成功初始化OpenAI模型: {DEFAULT_MODEL}")
-                    
-            except Exception as e:
-                logger.error(f"[{self.name}] 初始化真实模型失败: {e}")
-                raise RuntimeError(f"模型初始化失败: {e}")
-        else:
-            logger.warning(f"[{self.name}] 未配置API密钥，使用离线默认设计")
-            self.model = None
+    def __init__(self, name: str = "架构分析专家", model_config_name: str = "architecture_analyzer"):
+        super().__init__(
+            name=name,
+            model_config_name=model_config_name,
+            model_name=DEFAULT_MODEL,
+            task_type="precision"
+        )
     
-    def _extract_json(self, content: str, expected_type=dict):
-        """提取并解析JSON"""
-        try:
-            # 0. 预处理：修复常见的JSON格式错误
-            # 移除注释 // ... 或 /* ... */
-            import re
-            content = re.sub(r'(?m)^\s*//.*', '', content)
-            content = re.sub(r'/\*.*?\*/', '', content, flags=re.DOTALL)
-            # 修复末尾多余的逗号 (简单处理)
-            content = re.sub(r',(\s*[}\]])', r'\1', content)
-
-            # 1. 尝试提取代码块
-            code_block_match = re.search(r'```json\s*([\s\S]*?)\s*```', content)
-            if code_block_match:
-                json_str = code_block_match.group(1)
-                return json.loads(json_str)
-            
-            code_block_match_2 = re.search(r'```\s*([\s\S]*?)\s*```', content)
-            if code_block_match_2:
-                try:
-                    json_str = code_block_match_2.group(1)
-                    return json.loads(json_str)
-                except:
-                    pass
-
-            # 2. 尝试提取最外层JSON对象或数组
-            if expected_type == list:
-                match = re.search(r'\[[\s\S]*\]', content)
-            else:
-                match = re.search(r'\{[\s\S]*\}', content)
-                
-            if match:
-                json_str = match.group(0)
-                return json.loads(json_str)
-                
-            # 3. 尝试直接解析
-            return json.loads(content)
-            
-        except json.JSONDecodeError as e:
-            logger.error(f"JSON解析失败: {e}")
-            logger.debug(f"原始内容: {content[:500]}...") # 只打印前500字符避免日志爆炸
-            
-            # 4. 终极尝试：使用 dirtyjson 或简单的修复逻辑（如果引入依赖的话）
-            # 这里尝试一个简单的修复：如果是列表，尝试补全 ]
-            if expected_type == list and content.strip().startswith('['):
-                 try:
-                     return json.loads(content + ']')
-                 except:
-                     pass
-            
-            return None
-        except Exception as e:
-            logger.error(f"JSON提取未知错误: {e}")
-            return None
-
     async def propose_initial_architectures(self, requirements: Dict[str, Any], count: int = 3) -> List[Dict[str, Any]]:
         """基于需求提出多套初始架构方案"""
         logger.info(f"[{self.name}] 开始生成 {count} 套初始架构方案")
@@ -702,57 +624,3 @@ class ArchitectureAnalyzerAgent(AgentBase):
             "versioning_strategy": "URL路径版本控制",
             "performance_optimization": "缓存、分页、限流"
         }
-    
-    async def _process_model_response(self, response):
-        """处理模型响应，支持流式和非流式响应"""
-        if hasattr(response, '__aiter__'):
-            # 处理流式响应 - 修复重复累积问题
-            content_parts = []
-            last_content = ""
-            
-            async for chunk in response:
-                current_content = ""
-                
-                if hasattr(chunk, 'content'):
-                    content_value = chunk.content
-                    if isinstance(content_value, list):
-                        for item in content_value:
-                            if isinstance(item, dict) and 'text' in item:
-                                current_content += item['text']
-                            else:
-                                current_content += str(item)
-                    else:
-                        current_content = str(content_value)
-                elif hasattr(chunk, 'text'):
-                    current_content = chunk.text
-                elif isinstance(chunk, str):
-                    current_content = chunk
-                else:
-                    current_content = str(chunk)
-                
-                # 检查是否是增量内容，避免重复累积
-                if current_content.startswith(last_content):
-                    new_content = current_content[len(last_content):]
-                    if new_content:
-                        content_parts.append(new_content)
-                elif current_content != last_content:
-                    content_parts.append(current_content)
-                
-                last_content = current_content
-            
-            return "".join(content_parts)
-        elif hasattr(response, 'text'):
-            return response.text
-        elif hasattr(response, '__dict__'):
-            # 如果是SimpleNamespace或其他对象，优先使用text属性或转换为dict获取text
-            if 'text' in response.__dict__:
-                return response.__dict__['text']
-            else:
-                # 如果没有text属性，返回对象的字符串表示
-                return str(response)
-        else:
-            # 如果response没有__dict__属性，尝试其他方法
-            if hasattr(response, 'text'):
-                return response.text
-            else:
-                return str(response)

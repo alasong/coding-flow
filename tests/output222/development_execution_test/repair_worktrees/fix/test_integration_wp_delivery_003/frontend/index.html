@@ -1,0 +1,12 @@
+<!doctype html>
+<html>
+<head><meta charset='utf-8'><title>UI</title><style>body{font-family:Arial;margin:20px}nav a{margin-right:10px}section{margin-top:20px}</style></head>
+<body>
+<nav>
+<a href='#home'>首页</a><a href='#products'>商品</a><a href='#cart'>购物车</a><a href='#orders'>订单</a><a href='#profile'>个人中心</a>
+</nav>
+<div id='content'></div>
+<script>
+function render(){const h=location.hash||'#home';const c=document.getElementById('content');if(h=='#home'){c.innerHTML='<h2>首页</h2><div id=health></div>';fetch('/health').then(r=>r.json()).then(j=>{document.getElementById('health').innerText='健康状态: '+j.status})}else if(h=='#products'){c.innerHTML='<h2>商品</h2><p>这里展示商品列表</p>'}else if(h=='#cart'){c.innerHTML='<h2>购物车</h2><p>这里管理购物车</p>'}else if(h=='#orders'){c.innerHTML='<h2>订单</h2><p>这里查看订单</p>'}else if(h=='#profile'){c.innerHTML='<h2>个人中心</h2><p>这里管理个人信息</p>'}}window.addEventListener('hashchange',render);render();
+</script>
+</body></html>

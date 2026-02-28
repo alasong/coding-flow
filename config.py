@@ -6,18 +6,33 @@ load_dotenv()
 # API配置
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 DASHSCOPE_API_KEY = os.getenv("DASHSCOPE_API_KEY", "")
+SILICONFLOW_API_KEY = os.getenv("SILICONFLOW_API_KEY", "")
+
+# 硅基流动 API 配置
+SILICONFLOW_BASE_URL = os.getenv("SILICONFLOW_BASE_URL", "https://api.siliconflow.cn/v1")
+SILICONFLOW_DEFAULT_MODEL = os.getenv("SILICONFLOW_DEFAULT_MODEL", "Qwen/Qwen3-Coder-30B-A3B-Instruct")
 
 # 模型配置
 DEFAULT_MODEL = os.getenv("DEFAULT_MODEL", "qwen3.5-plus")
 DEV_MODEL = os.getenv("DEV_MODEL", "qwen-plus")
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
 
-# 备用模型池 (用于限流时降级)
+# LLM 平台优先级配置（用于跨平台降级）
+# 可选值: siliconflow, dashscope, openai
+# 默认优先使用硅基流动，降级到 DashScope，最后 OpenAI
+LLM_PROVIDER_PRIORITY = os.getenv("LLM_PROVIDER_PRIORITY", "siliconflow,dashscope,openai").split(",")
+
+# 各平台默认模型配置
+PROVIDER_DEFAULT_MODELS = {
+    "siliconflow": SILICONFLOW_DEFAULT_MODEL,
+    "dashscope": "qwen-plus",
+    "openai": "gpt-3.5-turbo"
+}
+
+# 备用模型池 (用于同平台内模型降级)
 BACKUP_MODELS = [
     "qwen-plus",
     "qwen-turbo",
-    # 如果配置了 OpenAI Key，也可以加入 gpt-4o-mini 等
-    # "gpt-4o-mini" 
 ]
 
 # 工作流配置
@@ -306,3 +321,59 @@ AGENT_CONFIGS = {
 4. 分析失败原因并给出修复建议。"""
     }
 }
+
+
+# ============================================================
+# LLM 配置类 - 统一管理模型调用参数
+# ============================================================
+class LLMConfig:
+    """LLM 模型配置"""
+    
+    # 温度参数
+    TEMPERATURE_CREATIVITY = float(os.getenv("LLM_TEMPERATURE_CREATIVITY", "0.7"))  # 创造性任务
+    TEMPERATURE_PRECISION = float(os.getenv("LLM_TEMPERATURE_PRECISION", "0.3"))   # 精确性任务
+    
+    # Token 限制
+    MAX_TOKENS_SHORT = int(os.getenv("LLM_MAX_TOKENS_SHORT", "2000"))
+    MAX_TOKENS_MEDIUM = int(os.getenv("LLM_MAX_TOKENS_MEDIUM", "4096"))
+    MAX_TOKENS_LONG = int(os.getenv("LLM_MAX_TOKENS_LONG", "6000"))
+    
+    # 重试与并发
+    MAX_RETRIES = int(os.getenv("LLM_MAX_RETRIES", "3"))
+    CONCURRENT_LIMIT = int(os.getenv("LLM_CONCURRENT_LIMIT", "3"))
+    RETRY_DELAY = float(os.getenv("LLM_RETRY_DELAY", "2.0"))
+    
+    @classmethod
+    def get_generate_kwargs(cls, task_type: str = "default") -> dict:
+        """
+        获取生成参数
+        
+        Args:
+            task_type: 任务类型
+                - "precision": 精确性任务（分析、验证）
+                - "creativity": 创造性任务（生成、创作）
+                - "long": 长文档任务
+                - "medium": 中等长度任务
+                - "default": 默认参数
+        
+        Returns:
+            包含 temperature 和 max_tokens 的字典
+        """
+        if task_type == "precision":
+            return {"temperature": cls.TEMPERATURE_PRECISION, "max_tokens": cls.MAX_TOKENS_SHORT}
+        elif task_type == "creativity":
+            return {"temperature": cls.TEMPERATURE_CREATIVITY, "max_tokens": cls.MAX_TOKENS_SHORT}
+        elif task_type == "long":
+            return {"temperature": cls.TEMPERATURE_PRECISION, "max_tokens": cls.MAX_TOKENS_LONG}
+        elif task_type == "medium":
+            return {"temperature": cls.TEMPERATURE_CREATIVITY, "max_tokens": cls.MAX_TOKENS_MEDIUM}
+        # default
+        return {"temperature": cls.TEMPERATURE_CREATIVITY, "max_tokens": cls.MAX_TOKENS_SHORT}
+    
+    @classmethod
+    def get_retry_config(cls) -> dict:
+        """获取重试配置"""
+        return {
+            "max_retries": cls.MAX_RETRIES,
+            "initial_delay": cls.RETRY_DELAY
+        }

@@ -104,9 +104,15 @@ pip install -r requirements.txt
 cp .env.example .env
 
 # 编辑 .env 文件，配置API密钥
-# 支持DashScope和OpenAI
+# 支持三种 API（优先级：硅基流动 > DashScope > OpenAI）
+
+# 硅基流动（推荐，国内访问稳定）
+SILICONFLOW_API_KEY=your_siliconflow_api_key_here
+
+# 或阿里云 DashScope
 DASHSCOPE_API_KEY=your_api_key_here
-# 或
+
+# 或 OpenAI
 OPENAI_API_KEY=your_openai_key_here
 ```
 
