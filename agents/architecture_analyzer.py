@@ -20,7 +20,7 @@ class ArchitectureAnalyzerAgent(BaseAgent):
         super().__init__(
             name=name,
             model_config_name=model_config_name,
-            model_name=DEFAULT_MODEL,
+            model_name=None,  # 使用平台默认模型，避免跨平台模型名称不兼容
             task_type="precision"
         )
     

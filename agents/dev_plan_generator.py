@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 class DevPlanGeneratorAgent(BaseAgent):
     def __init__(self, name: str = "开发计划生成专家", model_config_name: str = "dev_plan_generator"):
-        super().__init__(name=name, model_config_name=model_config_name, model_name=DEV_MODEL)
+        super().__init__(name=name, model_config_name=model_config_name, model_name=None  # 使用平台默认模型)
 
     async def generate(self, work_packages: List[Dict[str, Any]], requirements: Dict[str, Any] = None) -> List[Dict[str, Any]]:
         if not getattr(self, "model", None):

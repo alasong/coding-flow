@@ -4,7 +4,7 @@ from config import DEV_MODEL
 
 class DevRunVerifierAgent(BaseAgent):
     def __init__(self, name: str = "开发运行验证专家", model_config_name: str = "dev_run_verifier"):
-        super().__init__(name=name, model_config_name=model_config_name, model_name=DEV_MODEL)
+        super().__init__(name=name, model_config_name=model_config_name, model_name=None  # 使用平台默认模型)
 
     async def verify(self, output_dir: str) -> Dict[str, Any]:
         import os

@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 class DevPlanReviewerAgent(BaseAgent):
     def __init__(self, name: str = "开发计划评审专家", model_config_name: str = "dev_plan_reviewer"):
-        super().__init__(name=name, model_config_name=model_config_name, model_name=DEFAULT_MODEL)
+        super().__init__(name=name, model_config_name=model_config_name, model_name=None)  # 使用平台默认模型
 
     async def review(self, work_packages: List[Dict[str, Any]], dev_plans: List[Dict[str, Any]], requirements: Dict[str, Any] = None) -> Dict[str, Any]:
         """

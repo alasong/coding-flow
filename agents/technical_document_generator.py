@@ -3,7 +3,7 @@ import logging
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 import re
-from config import AGENT_CONFIGS, DASHSCOPE_API_KEY, OPENAI_API_KEY, DEFAULT_MODEL
+from config import AGENT_CONFIGS, DASHSCOPE_API_KEY, OPENAI_API_KEY, SILICONFLOW_API_KEY, SILICONFLOW_BASE_URL, SILICONFLOW_DEFAULT_MODEL, DEFAULT_MODEL
 
 logger = logging.getLogger(__name__)
 
@@ -25,10 +25,29 @@ class TechnicalDocumentGeneratorAgent:
     def _get_default_model(self):
         """获取默认模型 - 优先使用真实API"""
         # 配置真实的大模型API
-        if DASHSCOPE_API_KEY or OPENAI_API_KEY:
+        if SILICONFLOW_API_KEY or DASHSCOPE_API_KEY or OPENAI_API_KEY:
             try:
+                # 优先使用硅基流动
+                if SILICONFLOW_API_KEY:
+                    import os
+                    from agentscope.model import OpenAIChatModel
+                    original_base_url = os.environ.get("OPENAI_BASE_URL")
+                    os.environ["OPENAI_BASE_URL"] = SILICONFLOW_BASE_URL
+                    try:
+                        model = OpenAIChatModel(
+                            model_name=SILICONFLOW_DEFAULT_MODEL,
+                            api_key=SILICONFLOW_API_KEY,
+                            generate_kwargs={"temperature": 0.3, "max_tokens": 6000}
+                        )
+                        logger.info(f"[{self.name}] 成功初始化硅基流动模型: {SILICONFLOW_DEFAULT_MODEL}")
+                        return model
+                    finally:
+                        if original_base_url:
+                            os.environ["OPENAI_BASE_URL"] = original_base_url
+                        else:
+                            os.environ.pop("OPENAI_BASE_URL", None)
                 # 根据API密钥类型选择模型
-                if DASHSCOPE_API_KEY:
+                elif DASHSCOPE_API_KEY:
                     from agentscope.model import DashScopeChatModel
                     model = DashScopeChatModel(
                         model_name="qwen-turbo",

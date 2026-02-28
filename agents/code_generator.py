@@ -5,7 +5,7 @@ from config import DEV_MODEL
 
 class CodeGeneratorAgent(BaseAgent):
     def __init__(self, name: str = "业务代码生成专家", model_config_name: str = "code_generator"):
-        super().__init__(name=name, model_config_name=model_config_name, model_name=DEV_MODEL)
+        super().__init__(name=name, model_config_name=model_config_name, model_name=None  # 使用平台默认模型)
 
     async def generate(self, software_units: List[Dict[str, Any]], work_packages: List[Dict[str, Any]], output_dir: str) -> Dict[str, Any]:
         import os
