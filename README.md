@@ -91,11 +91,34 @@ python -m uvicorn server:app --reload --port 9000
 - **智能内容生成**: 基于架构设计自动生成技术文档
 - **多格式支持**: 支持Markdown、JSON等多种输出格式
 
+## 🛠️ CLI 使用参考
+
+| 参数 | 短名 | 类型 | 默认值 | 说明 |
+|------|------|------|--------|------|
+| `--file` | `-f` | `str` | — | 输入文件路径（批量处理模式） |
+| `--mode` | `-m` | `str` | `sequential` | 工作流模式：`sequential`, `parallel`, `requirement_only`, `architecture_only` |
+| `--info` | — | flag | `False` | 显示系统信息并退出 |
+| `--log-level` | — | `str` | `INFO` | 日志级别：`DEBUG`, `INFO`, `WARNING`, `ERROR` |
+| `--debug-requirements` | — | flag | `False` | 显示需求分析过程的详细条目信息 |
+| `--debug-architecture` | — | flag | `False` | 显示架构设计中组件匹配的详细映射 |
+| `--show-mapping` | — | flag | `False` | 输出需求 ↔ 架构的完整关联矩阵 |
+| `--validate-coverage` | — | flag | `False` | 运行覆盖率验证并输出详细报告 |
+
 ## 🚀 快速开始
 
 ### 安装依赖
 ```bash
 pip install -r requirements.txt
+```
+
+### 示例需求文件
+我们提供了两个开箱即用的示例需求文件，可直接运行：
+- [`examples/hello-world.txt`](examples/hello-world.txt) — 最小可行 API
+- [`examples/todo-app.txt`](examples/todo-app.txt) — 全栈 Web 应用
+
+运行示例：
+```bash
+python main.py -f examples/hello-world.txt -m sequential
 ```
 
 ### 配置API密钥

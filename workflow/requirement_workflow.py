@@ -1,5 +1,6 @@
 """
 需求分析工作流 - 使用AgentScope 1.0.7兼容版本
+集成关键决策点组件，支持产品经理确认关键业务决策
 """
 
 import logging
@@ -13,6 +14,14 @@ from agents.requirement_collector import RequirementCollectorAgent
 from agents.requirement_analyzer import RequirementAnalyzerAgent
 from agents.requirement_validator import RequirementValidatorAgent
 from agents.document_generator import DocumentGeneratorAgent
+
+# 导入关键决策点组件
+from agents.key_decision_point import (
+    DecisionPointGenerator,
+    DecisionConfirmUI,
+    DecisionApplier,
+    DecisionReportGenerator
+)
 
 # 配置日志
 logger = logging.getLogger(__name__)
@@ -47,6 +56,13 @@ class RequirementAnalysisWorkflow(BaseWorkflow):
         super().__init__("RequirementAnalysisWorkflow", "需求分析工作流")
         self.agents = {}
         self.results = {}
+        
+        # 初始化关键决策点组件
+        self.decision_generator = DecisionPointGenerator()
+        self.decision_ui = DecisionConfirmUI(mode="batch")
+        self.decision_applier = DecisionApplier()
+        self.decision_reporter = DecisionReportGenerator()
+        
         self._initialize_agents()
     
     def get_workflow_steps(self) -> List[Dict[str, Any]]:
@@ -193,8 +209,49 @@ class RequirementAnalysisWorkflow(BaseWorkflow):
                     logger.info("验证通过，无严重阻断性问题。")
                     break
             
-            # 步骤2.6: 生成评审要点并进行人工确认
-            logger.info("步骤2.6: 生成关键评审要点...")
+            # 步骤2.6: 结构化验证并生成关键决策点
+            logger.info("步骤2.6: 结构化验证并生成关键决策点...")
+            
+            # 执行结构化验证
+            structured_validation = await self.agents["requirement_validator"].validate_for_decisions(
+                requirement_items
+            )
+            self.results["structured_validation"] = structured_validation
+            
+            # 生成关键决策点
+            decisions = self.decision_generator.generate_from_validation(
+                structured_validation,
+                requirement_items
+            )
+            
+            logger.info(f"生成了 {len(decisions)} 个关键决策点")
+            
+            # 步骤2.7: 产品经理确认关键决策点
+            if decisions:
+                if kwargs.get("interactive", False):
+                    logger.info("步骤2.7: 等待产品经理确认关键决策点...")
+                    decisions = await self.decision_ui.confirm(decisions)
+                else:
+                    # 非交互模式，使用默认策略
+                    logger.info("步骤2.7: 非交互模式，使用默认策略...")
+                    for decision in decisions:
+                        decision.select_default()
+                
+                # 应用决策结果到需求项
+                requirement_items = self.decision_applier.apply(decisions, requirement_items)
+                
+                # 记录决策结果
+                self.results["key_decisions"] = [d.to_dict() for d in decisions]
+                
+                # 生成决策报告
+                decision_report = self.decision_reporter.generate_markdown(decisions)
+                self.results["decision_report"] = decision_report
+            else:
+                logger.info("无关键决策点需要确认")
+                self.results["key_decisions"] = []
+            
+            # 步骤2.8: 生成评审要点并进行人工确认（保留兼容旧逻辑）
+            logger.info("步骤2.8: 生成关键评审要点...")
             review_points = await self.agents["requirement_analyzer"].generate_review_points(requirement_items)
             
             # 如果存在未解决的验证问题，将其强制加入评审要点
@@ -455,6 +512,20 @@ class RequirementAnalysisWorkflow(BaseWorkflow):
             val_filename = f"requirement_validation_report_{timestamp}.md"
             with open(os.path.join(output_dir, val_filename), 'w', encoding='utf-8') as f:
                 f.write("\n".join(val_md))
+        
+        # 保存关键决策报告
+        if 'decision_report' in self.results:
+            decision_filename = f"product_decision_report_{timestamp}.md"
+            with open(os.path.join(output_dir, decision_filename), 'w', encoding='utf-8') as f:
+                f.write(self.results['decision_report'])
+            logger.info(f"关键决策报告已保存: {decision_filename}")
+        
+        # 保存结构化验证结果
+        if 'structured_validation' in self.results:
+            sv = self.results['structured_validation']
+            sv_filename = f"structured_validation_{timestamp}.json"
+            with open(os.path.join(output_dir, sv_filename), 'w', encoding='utf-8') as f:
+                json.dump(sv, f, ensure_ascii=False, indent=2)
                 
         # 保存过程记录
         process_md = [

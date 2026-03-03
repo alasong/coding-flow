@@ -4,6 +4,7 @@ from typing import Dict, List, Any
 import json
 import logging
 from config import DASHSCOPE_API_KEY, OPENAI_API_KEY, SILICONFLOW_API_KEY, SILICONFLOW_BASE_URL, SILICONFLOW_DEFAULT_MODEL, DEFAULT_MODEL
+from agents.key_decision_point import IssueSeverity, IssueCategory
 
 logger = logging.getLogger(__name__)
 
@@ -199,6 +200,104 @@ class RequirementValidatorAgent(AgentBase):
             "suggestions": [],
             "validation_summary": content if isinstance(content, str) else str(content)
         }
+
+    async def validate_for_decisions(self, requirements: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        验证需求并返回结构化的问题列表，用于生成关键决策点
+        
+        Returns:
+            {
+                "is_valid": bool,
+                "missing_functions": [{"id", "name", "domain", "severity"}],
+                "missing_nfrs": [{"id", "type", "current_description", "suggested_metric"}],
+                "technical_risks": [{"id", "description", "level", "severity"}],
+                "critical_issues": [str],
+                "scores": {"completeness", "consistency", "testability"}
+            }
+        """
+        logger.info(f"[{self.name}] 开始结构化验证（用于决策点生成）")
+        
+        prompt = f"""
+        请对以下需求进行全面验证，并返回结构化的验证结果：
+
+        功能需求：{requirements.get('functional_requirements', [])}
+        非功能需求：{requirements.get('non_functional_requirements', [])}
+        约束条件：{requirements.get('constraints', [])}
+        需求条目：{requirements.get('requirement_entries', [])}
+
+        请以JSON格式返回验证结果，包含以下字段：
+
+        1. is_valid: bool - 整体是否通过验证
+        2. missing_functions: 数组 - 缺失的功能列表
+           - 每项包含: id, name, domain(所属领域), severity(blocker/critical/major)
+        3. missing_nfrs: 数组 - 缺失或未量化的非功能需求
+           - 每项包含: id, type(performance/security/availability等), current_description, suggested_metric
+        4. technical_risks: 数组 - 技术风险
+           - 每项包含: id, description, level(高/中/低), severity(blocker/critical/major)
+        5. critical_issues: 数组 - 其他严重问题的描述字符串
+        6. scores: 对象 - 质量评分
+           - completeness: 0-1
+           - consistency: 0-1
+           - testability: 0-1
+
+        请基于行业标准分析缺失的功能（如用户管理、权限控制、审计日志等）。
+        对于非功能需求，请提供具体的量化建议（如"响应时间≤2秒"、"可用性≥99.9%"）。
+        """
+        
+        if not getattr(self, "model", None):
+            return {
+                "is_valid": True,
+                "missing_functions": [],
+                "missing_nfrs": [],
+                "technical_risks": [],
+                "critical_issues": [],
+                "scores": {"completeness": 0.8, "consistency": 0.9, "testability": 0.7}
+            }
+        
+        response = await self.model([{"role": "user", "content": prompt}])
+        content = await self._process_model_response(response)
+        
+        # 解析JSON
+        try:
+            import re
+            content = re.sub(r'//.*', '', content)
+            content = re.sub(r'/\*.*?\*/', '', content, flags=re.DOTALL)
+            content = re.sub(r',(\s*[}\]])', r'\1', content)
+
+            code_block_match = re.search(r'```json\s*([\s\S]*?)\s*```', content)
+            if code_block_match:
+                content = code_block_match.group(1)
+            else:
+                code_block_match_2 = re.search(r'```\s*([\s\S]*?)\s*```', content)
+                if code_block_match_2:
+                    content = code_block_match_2.group(1)
+
+            json_match = re.search(r'\{[\s\S]*\}', content)
+            if json_match:
+                result = json.loads(json_match.group(0))
+            else:
+                result = json.loads(content)
+            
+            # 确保所有字段存在
+            result.setdefault("is_valid", True)
+            result.setdefault("missing_functions", [])
+            result.setdefault("missing_nfrs", [])
+            result.setdefault("technical_risks", [])
+            result.setdefault("critical_issues", [])
+            result.setdefault("scores", {"completeness": 0.8, "consistency": 0.9, "testability": 0.7})
+            
+            return result
+
+        except Exception as e:
+            logger.warning(f"解析结构化验证结果失败: {e}")
+            return {
+                "is_valid": True,
+                "missing_functions": [],
+                "missing_nfrs": [],
+                "technical_risks": [],
+                "critical_issues": [content[:200] if isinstance(content, str) else "验证结果解析失败"],
+                "scores": {"completeness": 0.8, "consistency": 0.9, "testability": 0.7}
+            }
 
     async def validate_correctness(self, requirements: Dict[str, Any]) -> Dict[str, Any]:
         """验证需求的正确性和完整性"""
